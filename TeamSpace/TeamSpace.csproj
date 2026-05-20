@@ -60,6 +60,8 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="Services\FileParser.cs" />
+    <Compile Include="Services\MovingAverageForecast.cs" />
+    <Compile Include="Services\StatisticsCalculator.cs" />
     <Compile Include="View\BadRoadsForm.cs">
       <SubType>Form</SubType>
     </Compile>
