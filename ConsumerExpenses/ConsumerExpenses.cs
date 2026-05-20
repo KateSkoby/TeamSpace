@@ -10,9 +10,9 @@ using System.Windows.Forms;
 
 namespace ConsumerExpenses
 {
-    public partial class Form1 : Form
+    public partial class ConsumerExpenses : Form
     {
-        public Form1()
+        public ConsumerExpenses()
         {
             InitializeComponent();
         }
