@@ -48,6 +48,7 @@
   <ItemGroup>
     <Compile Include="Models\RoadData.cs" />
     <Compile Include="Services\FileParser.cs" />
+    <Compile Include="Services\MovingAverageForecast.cs" />
     <Compile Include="Services\StatisticsCalculator.cs" />
     <Compile Include="View\ConsumerExpenses.cs">
       <SubType>Form</SubType>
