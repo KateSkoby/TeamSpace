@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Windows.Forms;
+using TeamSpace.View;
 using AppResources = TeamSpace.Properties.Resources;
 
 namespace TeamSpace
@@ -113,9 +116,9 @@ namespace TeamSpace
                 AppResources.katya
             );
 
-            vikaCard.Click += delegate { MessageBox.Show("Открыт модуль: Вика — вариант 16"); };
-            leshaCard.Click += delegate { MessageBox.Show("Открыт модуль: Леша — вариант 17"); };
-            katyaCard.Click += delegate { MessageBox.Show("Открыт модуль: Катя — вариант 18"); };
+            vikaCard.Click += delegate { OpenBadRoadsForm(); };
+            leshaCard.Click += delegate { LaunchBirthsOutOfWedlockApp(); };
+            katyaCard.Click += delegate { OpenConsumerExpensesForm(); };
 
             cardsPanel.Controls.Add(WrapCentered(vikaCard), 0, 0);
             cardsPanel.Controls.Add(WrapCentered(leshaCard), 1, 0);
@@ -134,9 +137,107 @@ namespace TeamSpace
             cardsPanel.Location = new Point((root.ClientSize.Width - cardsPanel.Width) / 2, 210);
         }
 
+        private void OpenBadRoadsForm()
+        {
+            try
+            {
+                BadRoadsForm form = new BadRoadsForm();
+                form.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Ошибка при открытии формы BadRoadsForm:\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void OpenConsumerExpensesForm()
+        {
+            try
+            {
+                ConsumerExpensesForm form = new ConsumerExpensesForm();
+                form.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Ошибка при открытии формы ConsumerExpensesForm:\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void LaunchBirthsOutOfWedlockApp()
+        {
+            try
+            {
+                string baseDir = Application.StartupPath;
+                string projectDir = Path.Combine(baseDir, "BirthsOutOfWedlockApp");
+
+                string exePath = Path.Combine(
+                    projectDir,
+                    "bin",
+                    "Release",
+                    "net8.0-windows",
+                    "BirthsOutOfWedlockApp.exe"
+                );
+
+                if (!File.Exists(exePath))
+                {
+                    exePath = Path.Combine(
+                        projectDir,
+                        "bin",
+                        "Debug",
+                        "net8.0-windows",
+                        "BirthsOutOfWedlockApp.exe"
+                    );
+                }
+
+                if (!File.Exists(exePath))
+                {
+                    MessageBox.Show(
+                        "Не найден файл BirthsOutOfWedlockApp.exe.\n" +
+                        "Проверь, что папка BirthsOutOfWedlockApp лежит рядом с приложением и проект собран.",
+                        "Ошибка",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    WorkingDirectory = Path.GetDirectoryName(exePath),
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Ошибка при запуске приложения:\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         private ModernCard CreateCard(string title, string subtitle, string buttonText, Image avatarImage)
         {
-            return new ModernCard(title, subtitle, buttonText, avatarImage, PrimaryBlue, LightSurface, DarkText, MutedText, BorderColor);
+            return new ModernCard(
+                title,
+                subtitle,
+                buttonText,
+                avatarImage,
+                PrimaryBlue,
+                LightSurface,
+                DarkText,
+                MutedText,
+                BorderColor
+            );
         }
 
         private Control WrapCentered(Control control)
@@ -209,7 +310,8 @@ namespace TeamSpace
                 BackColor = Color.FromArgb(238, 244, 255),
                 SizeMode = PictureBoxSizeMode.Zoom,
                 Location = new Point((Width - 96) / 2, 26),
-                Image = _avatarImage
+                Image = _avatarImage,
+                Cursor = Cursors.Hand
             };
 
             Label titleLabel = new Label
@@ -222,7 +324,8 @@ namespace TeamSpace
                 Height = 62,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Location = new Point(25, 132),
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
             };
 
             Label subtitleLabel = new Label
@@ -235,7 +338,8 @@ namespace TeamSpace
                 Height = 45,
                 TextAlign = ContentAlignment.TopCenter,
                 Location = new Point(30, 198),
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
             };
 
             Panel buttonPanel = new Panel
@@ -243,7 +347,8 @@ namespace TeamSpace
                 Width = 132,
                 Height = 42,
                 BackColor = Color.Transparent,
-                Location = new Point((Width - 132) / 2, 255)
+                Location = new Point((Width - 132) / 2, 255),
+                Cursor = Cursors.Hand
             };
             buttonPanel.Paint += ButtonPanel_Paint;
 
@@ -256,7 +361,8 @@ namespace TeamSpace
                 Width = 132,
                 Height = 42,
                 TextAlign = ContentAlignment.MiddleCenter,
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
             };
 
             buttonPanel.Controls.Add(buttonLabel);
@@ -266,11 +372,20 @@ namespace TeamSpace
             Controls.Add(subtitleLabel);
             Controls.Add(buttonPanel);
 
-            foreach (Control c in Controls)
-                c.Click += delegate (object sender, EventArgs e) { OnClick(e); };
+            Click += delegate { };
+            AttachClickHandlers(this);
 
             MouseEnter += delegate { _hovered = true; Invalidate(); };
             MouseLeave += delegate { _hovered = false; Invalidate(); };
+        }
+
+        private void AttachClickHandlers(Control parent)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                child.Click += delegate (object sender, EventArgs e) { OnClick(e); };
+                AttachClickHandlers(child);
+            }
         }
 
         private void ButtonPanel_Paint(object sender, PaintEventArgs e)
@@ -328,6 +443,7 @@ namespace TeamSpace
         public CircularPictureBox()
         {
             SizeMode = PictureBoxSizeMode.Zoom;
+            Cursor = Cursors.Hand;
             Resize += delegate { UpdateRegion(); };
         }
 
