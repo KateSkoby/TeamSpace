@@ -5,7 +5,7 @@ namespace TeamSpace.Models
     /// Модель данных о состоянии дорог
     public class RoadData
     {
-        /// Год
+        /// Год 
         public int Year { get; set; }
 
         /// Регион (субъект РФ)
