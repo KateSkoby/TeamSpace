@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace TeamSpace
+namespace ConsumerExpenses
 {
     internal static class Program
     {
@@ -16,7 +16,7 @@ namespace TeamSpace
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainMenuForm());
+            Application.Run(new Form1());
         }
     }
 }
