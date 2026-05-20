@@ -46,11 +46,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="View\ConsumerExpenses.cs">
+    <Compile Include="View\BadRoadsForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="View\ConsumerExpenses.Designer.cs">
-      <DependentUpon>ConsumerExpenses.cs</DependentUpon>
+    <Compile Include="View\BadRoadsForm.Designer.cs">
+      <DependentUpon>BadRoadsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="View\ConsumerExpensesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="View\ConsumerExpensesForm.Designer.cs">
+      <DependentUpon>ConsumerExpensesForm.cs</DependentUpon>
     </Compile>
     <Compile Include="View\MainMenuForm.cs">
       <SubType>Form</SubType>

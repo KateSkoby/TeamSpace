@@ -8,11 +8,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace ConsumerExpenses
+namespace TeamSpace.View
 {
-    public partial class ConsumerExpenses : Form
+    public partial class BadRoadsForm : Form
     {
-        public ConsumerExpenses()
+        public BadRoadsForm()
         {
             InitializeComponent();
         }
