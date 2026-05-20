@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using AppResources = TeamSpace.Properties.Resources;
 
 namespace TeamSpace
 {
@@ -95,21 +96,21 @@ namespace TeamSpace
                 "Вика — вариант 16",
                 "Модуль анализа по варианту 16",
                 "Открыть",
-                global::TeamSpace.Properties.Resources.vika
+                AppResources.vika
             );
 
             ModernCard leshaCard = CreateCard(
                 "Леша — вариант 17",
                 "Модуль анализа по варианту 17",
                 "Открыть",
-                global::TeamSpace.Properties.Resources.lesha
+                AppResources.lesha
             );
 
             ModernCard katyaCard = CreateCard(
                 "Катя — вариант 18",
                 "Модуль анализа по варианту 18",
                 "Открыть",
-                global::TeamSpace.Properties.Resources.katya
+                AppResources.katya
             );
 
             vikaCard.Click += delegate { MessageBox.Show("Открыт модуль: Вика — вариант 16"); };
