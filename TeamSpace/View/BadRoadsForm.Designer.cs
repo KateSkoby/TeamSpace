@@ -21,7 +21,6 @@
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
             this.pnlHeader = new System.Windows.Forms.Panel();
-            this.btnBackToMenu = new System.Windows.Forms.Button();
             this.lblTitle = new System.Windows.Forms.Label();
             this.lblSubtitle = new System.Windows.Forms.Label();
             this.pnlControls = new System.Windows.Forms.Panel();
@@ -54,7 +53,6 @@
             // 
             this.pnlHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(248)))), ((int)(((byte)(255)))));
             this.pnlHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.pnlHeader.Controls.Add(this.btnBackToMenu);
             this.pnlHeader.Controls.Add(this.lblTitle);
             this.pnlHeader.Controls.Add(this.lblSubtitle);
             this.pnlHeader.Dock = System.Windows.Forms.DockStyle.Top;
@@ -62,22 +60,6 @@
             this.pnlHeader.Name = "pnlHeader";
             this.pnlHeader.Size = new System.Drawing.Size(1465, 107);
             this.pnlHeader.TabIndex = 0;
-            // 
-            // btnBackToMenu
-            // 
-            this.btnBackToMenu.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(102)))), ((int)(((byte)(204)))));
-            this.btnBackToMenu.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnBackToMenu.FlatAppearance.BorderSize = 0;
-            this.btnBackToMenu.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnBackToMenu.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
-            this.btnBackToMenu.ForeColor = System.Drawing.Color.White;
-            this.btnBackToMenu.Location = new System.Drawing.Point(23, 32);
-            this.btnBackToMenu.Name = "btnBackToMenu";
-            this.btnBackToMenu.Size = new System.Drawing.Size(171, 43);
-            this.btnBackToMenu.TabIndex = 0;
-            this.btnBackToMenu.Text = "← Назад";
-            this.btnBackToMenu.UseVisualStyleBackColor = false;
-            this.btnBackToMenu.Click += new System.EventHandler(this.btnBackToMenu_Click);
             // 
             // lblTitle
             // 
@@ -381,7 +363,6 @@
 
         // Объявление компонентов
         private System.Windows.Forms.Panel pnlHeader;
-        private System.Windows.Forms.Button btnBackToMenu;
         private System.Windows.Forms.Label lblTitle;
         private System.Windows.Forms.Label lblSubtitle;
 
