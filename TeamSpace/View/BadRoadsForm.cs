@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
@@ -10,27 +11,43 @@ namespace TeamSpace.View
 {
     public partial class BadRoadsForm : Form
     {
-        // Поле для хранения всех загруженных данных о дорогах
+        // Хранилище всех загруженных данных
         private List<RoadData> _allData;
-
-        // Поле для хранения текущего выбранного региона
+        // Текущий выбранный регион
         private string _currentRegion;
 
-        // Конструктор формы
         public BadRoadsForm()
         {
             InitializeComponent();
             InitializeCustomSettings();
+
+            // Применяем скругление к кнопкам после инициализации компонентов
+            MakeButtonRounded(btnLoadData, 14);
+            MakeButtonRounded(btnShowGraph, 14);
+            MakeButtonRounded(btnExport, 14);
         }
 
-        // Метод для начальной настройки элементов управления
+        // Метод для скругления углов кнопки
+        private void MakeButtonRounded(Panel btn, int radius)
+        {
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            path.AddArc(0, 0, radius, radius, 180, 90);
+            path.AddArc(btn.Width - radius, 0, radius, radius, 270, 90);
+            path.AddArc(btn.Width - radius, btn.Height - radius, radius, radius, 0, 90);
+            path.AddArc(0, btn.Height - radius, radius, radius, 90, 90);
+            path.CloseFigure();
+
+            btn.Region = new System.Drawing.Region(path);
+        }
+
+        // Начальная настройка элементов управления
         private void InitializeCustomSettings()
         {
-            // Устанавливаем значения по умолчанию для параметров прогноза
+            // Значения по умолчанию для параметров прогноза
             txtPeriod.Text = "3";
             txtForecastYears.Text = "3";
 
-            // Настраиваем DataGridView: автогенерация колонок, выбор всей строки, запрет множественного выбора
+            // Настройка DataGridView
             dataGridView.AutoGenerateColumns = true;
             dataGridView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dataGridView.MultiSelect = false;
@@ -41,17 +58,16 @@ namespace TeamSpace.View
         {
             try
             {
-                // Формируем путь к файлу данных
+                // Формируем путь к файлу
                 string basePath = AppDomain.CurrentDomain.BaseDirectory;
                 string filePath = Path.Combine(basePath, "Data", "bad_roads.csv");
 
-                // Если файл не найден по основному пути, пробуем альтернативный
+                // Альтернативный путь, если первый не сработал
                 if (!File.Exists(filePath))
                 {
                     filePath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "bad_roads.csv");
                 }
 
-                // Если файл так и не найден - показываем ошибку
                 if (!File.Exists(filePath))
                 {
                     MessageBox.Show("Файл данных не найден!\nПроверьте путь к bad_roads.csv",
@@ -59,15 +75,15 @@ namespace TeamSpace.View
                     return;
                 }
 
-                // Загружаем данные из CSV файла через сервис парсинга
+                // Загружаем данные через сервис парсинга
                 _allData = FileParser.LoadRoadDataFromCsv(filePath);
 
-                // Получаем список регионов и заполняем ComboBox
+                // Заполняем ComboBox списком регионов
                 var regions = StatisticsCalculator.GetAllRegions(_allData);
                 cmbRegions.Items.Clear();
                 cmbRegions.Items.AddRange(regions.ToArray());
 
-                // Выбираем первый регион по умолчанию, если список не пуст
+                // Выбираем первый регион по умолчанию
                 if (regions.Count > 0)
                 {
                     cmbRegions.SelectedIndex = 0;
@@ -79,28 +95,24 @@ namespace TeamSpace.View
                 // Рассчитываем и показываем статистику
                 DisplayStatistics();
 
-                // Показываем сообщение об успешной загрузке
-                MessageBox.Show($"Загружено {_allData.Count} записей",
+                MessageBox.Show($"✅ Загружено {_allData.Count} записей",
                     "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                // Обработка ошибок при загрузке
-                MessageBox.Show($"Ошибка при загрузке данных:\n{ex.Message}",
+                MessageBox.Show($"❌ Ошибка при загрузке данных:\n{ex.Message}",
                     "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        // Обработчик изменения выбранного региона в ComboBox
+        // Обработчик выбора региона
         private void cmbRegions_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Если регион выбран и данные загружены
             if (cmbRegions.SelectedItem != null && _allData != null)
             {
-                // Сохраняем выбранный регион
                 _currentRegion = cmbRegions.SelectedItem.ToString();
 
-                // Фильтруем данные по выбранному региону и обновляем таблицу
+                // Фильтруем таблицу по выбранному региону
                 var regionData = StatisticsCalculator.GetDataByRegion(_allData, _currentRegion);
                 dataGridView.DataSource = regionData.ToList();
             }
@@ -109,7 +121,7 @@ namespace TeamSpace.View
         // Обработчик кнопки "Показать график"
         private void btnShowGraph_Click(object sender, EventArgs e)
         {
-            // Проверяем, что данные загружены и регион выбран
+            // Проверка загрузки данных и выбора региона
             if (_allData == null || string.IsNullOrEmpty(_currentRegion))
             {
                 MessageBox.Show("Сначала загрузите данные и выберите регион",
@@ -119,7 +131,7 @@ namespace TeamSpace.View
 
             try
             {
-                // Валидация ввода: проверяем, что период (n) - положительное число
+                // Валидация ввода периода (n)
                 if (!int.TryParse(txtPeriod.Text, out int period) || period <= 0)
                 {
                     MessageBox.Show("Период (n) должен быть положительным числом",
@@ -127,7 +139,7 @@ namespace TeamSpace.View
                     return;
                 }
 
-                // Валидация ввода: проверяем, что количество лет прогноза - положительное число
+                // Валидация ввода лет прогноза
                 if (!int.TryParse(txtForecastYears.Text, out int forecastYears) || forecastYears <= 0)
                 {
                     MessageBox.Show("Количество лет прогноза должно быть положительным числом",
@@ -135,23 +147,23 @@ namespace TeamSpace.View
                     return;
                 }
 
-                // Получаем данные по выбранному региону
+                // Получаем данные по региону
                 var regionData = StatisticsCalculator.GetDataByRegion(_allData, _currentRegion);
 
-                // Подготовка массивов для графика: годы и проценты плохих дорог
+                // Подготавливаем массивы для графика
                 double[] years = regionData.Select(d => (double)d.Year).ToArray();
                 double[] percents = regionData.Select(d => d.BadRoadsPercent).ToArray();
 
-                // Рассчитываем прогноз методом скользящей средней
+                // Рассчитываем прогноз скользящей средней
                 var forecastValues = MovingAverageForecast.CalculateForecast(
                     percents.ToList(), period, forecastYears);
 
-                // Формируем массив годов для прогноза (следующие после последнего года)
+                // Формируем годы для прогноза
                 int lastYear = regionData.Last().Year;
                 double[] forecastYearsArray = Enumerable.Range(lastYear + 1, forecastYears)
                     .Select(y => (double)y).ToArray();
 
-                // Очищаем график перед построением новых данных
+                // Очищаем график перед отрисовкой
                 formsPlot.Plot.Clear();
 
                 // Рисуем исторические данные
@@ -168,95 +180,93 @@ namespace TeamSpace.View
                 scatterForecast.LegendText = $"Прогноз (n={period})";
                 scatterForecast.Color = ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(220, 53, 69));
 
-                // Настраиваем подписи осей и заголовок графика
+                // Настраиваем оси и заголовок
                 formsPlot.Plot.XLabel("Год");
                 formsPlot.Plot.YLabel("Процент плохих дорог (%)");
                 formsPlot.Plot.Title($"Динамика состояния дорог в регионе {_currentRegion}");
 
-                // Включаем отображение легенды и настраиваем сетку
+                // Включаем легенду и сетку
                 formsPlot.Plot.Legend.IsVisible = true;
                 formsPlot.Plot.Grid.MajorLineColor = ScottPlot.Color.FromColor(System.Drawing.Color.FromArgb(50, System.Drawing.Color.Black));
 
-                // Обновляем график
+                // Обновляем график и масштабируем оси
                 formsPlot.Refresh();
-
-                // Автоматически масштабируем оси под данные
                 formsPlot.Plot.Axes.AutoScale();
             }
             catch (Exception ex)
             {
-                // Обработка ошибок при построении графика
-                MessageBox.Show($"Ошибка при построении графика:\n{ex.Message}",
+                MessageBox.Show($"❌ Ошибка при построении графика:\n{ex.Message}",
                     "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        // Метод для расчета и отображения статистики
+        // Отображение статистики в нижней панели
         private void DisplayStatistics()
         {
-            // Если данные не загружены - ничего не делаем
             if (_allData == null || _allData.Count == 0)
                 return;
 
-            // Рассчитываем статистику: регионы с макс. и мин. снижением процента плохих дорог
             var stats = StatisticsCalculator.FindMaxMinDecrease(_allData);
 
-            // Формируем текст для отображения статистики
-            string statsText = $"📊 СТАТИСТИКА ЗА 15 ЛЕТ (2010-2024):\n\n" +
-                             $"✅ Максимальное снижение:\n" +
-                             $"   Регион: {stats.MaxDecreaseRegion}\n" +
-                             $"   Снижение: {stats.MaxDecrease:F2}%\n\n" +
-                             $"📉 Минимальное снижение:\n" +
-                             $"   Регион: {stats.MinDecreaseRegion}\n" +
-                             $"   Снижение: {stats.MinDecrease:F2}%";
+            // Заполняем левую колонку (Макс. снижение)
+            lblMaxRegionVal.Text = $"Регион: {stats.MaxDecreaseRegion}";
+            lblMaxPercentVal.Text = $"Снижение: {stats.MaxDecrease:F2}%";
 
-            // Обновляем текст в Label статистики
-            lblStatistics.Text = statsText;
+            // Заполняем правую колонку (Мин. снижение)
+            lblMinRegionVal.Text = $"Регион: {stats.MinDecreaseRegion}";
+            lblMinPercentVal.Text = $"Снижение: {stats.MinDecrease:F2}%";
         }
 
-        // Обработчик кнопки "Экспорт графика"
+        // Обработчик экспорта графика
         private void btnExport_Click(object sender, EventArgs e)
         {
             try
             {
-                // Открываем диалог сохранения файла
                 using (SaveFileDialog saveDialog = new SaveFileDialog())
                 {
                     saveDialog.Filter = "PNG Image|*.png|JPEG Image|*.jpg";
                     saveDialog.Title = "Экспорт графика";
                     saveDialog.FileName = $"roads_forecast_{_currentRegion ?? "data"}";
 
-                    // Если пользователь выбрал файл для сохранения
                     if (saveDialog.ShowDialog() == DialogResult.OK)
                     {
                         string filePath = saveDialog.FileName;
 
-                        // Экспортируем график в файл с разрешением 1200x800
+                        // Экспортируем график в файл
                         formsPlot.Plot.SavePng(filePath, 1200, 800);
 
-                        // Показываем сообщение об успешном экспорте
-                        MessageBox.Show($"График успешно сохранен:\n{filePath}",
+                        MessageBox.Show($"✅ График успешно сохранен:\n{filePath}",
                             "Экспорт", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
             }
             catch (Exception ex)
             {
-                // Обработка ошибок при экспорте
-                MessageBox.Show($"Ошибка при экспорте:\n{ex.Message}",
+                MessageBox.Show($"❌ Ошибка при экспорте:\n{ex.Message}",
                     "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        // Пустые обработчики событий
-        private void lblTitle_Click(object sender, EventArgs e)
+        // Метод для отрисовки скругленных кнопок
+        private void RoundedButton_Paint(object sender, PaintEventArgs e)
         {
+            var button = sender as Panel;
+            if (button == null) return;
 
+            int radius = 8;
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+
+            path.AddArc(0, 0, radius, radius, 180, 90);
+            path.AddArc(button.Width - radius, 0, radius, radius, 270, 90);
+            path.AddArc(button.Width - radius, button.Height - radius, radius, radius, 0, 90);
+            path.AddArc(0, button.Height - radius, radius, radius, 90, 90);
+            path.CloseFigure();
+
+            button.Region = new Region(path);
         }
 
-        private void dataGridView_CellContentClick(object sender, DataGridViewCellEventArgs e)
-        {
-
-        }
+        // Пустые обработчики для совместимости с дизайнером
+        private void lblTitle_Click(object sender, EventArgs e) { }
+        private void dataGridView_CellContentClick(object sender, DataGridViewCellEventArgs e) { }
     }
 }
