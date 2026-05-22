@@ -22,9 +22,9 @@ namespace TeamSpace
         {
             Text = "TeamSpace — Главное меню";
             StartPosition = FormStartPosition.CenterScreen;
-            Width = 1280;
-            Height = 820;
-            MinimumSize = new Size(1100, 700);
+            Width = 1320;
+            Height = 860;
+            MinimumSize = new Size(1320, 860);
             BackColor = PageBackground;
             DoubleBuffered = true;
 
@@ -86,8 +86,8 @@ namespace TeamSpace
             {
                 ColumnCount = 3,
                 RowCount = 1,
-                Width = 1120,
-                Height = 360,
+                Width = 1260,
+                Height = 430,
                 BackColor = Color.Transparent
             };
 
@@ -97,21 +97,21 @@ namespace TeamSpace
 
             ModernCard vikaCard = CreateCard(
                 "Вика — вариант 16",
-                "Модуль анализа по варианту 16",
+                "Модуль анализа доли плохих дорог\nпо субъектам РФ",
                 "Открыть",
                 AppResources.vika
             );
 
             ModernCard leshaCard = CreateCard(
                 "Леша — вариант 17",
-                "Модуль анализа по варианту 17",
+                "Модуль анализа процента детей,\nрожденных вне брака",
                 "Открыть",
                 AppResources.lesha
             );
 
             ModernCard katyaCard = CreateCard(
                 "Катя — вариант 18",
-                "Модуль анализа по варианту 18",
+                "Модуль анализа\nпотребительских расходов",
                 "Открыть",
                 AppResources.katya
             );
@@ -274,6 +274,7 @@ namespace TeamSpace
         private readonly Color _borderColor;
 
         private bool _hovered;
+        private bool _buttonHovered;
 
         public ModernCard(
             string title,
@@ -296,8 +297,8 @@ namespace TeamSpace
             _mutedText = mutedText;
             _borderColor = borderColor;
 
-            Width = 330;
-            Height = 320;
+            Width = 380;
+            Height = 380;
             BackColor = Color.Transparent;
             Cursor = Cursors.Hand;
             DoubleBuffered = true;
@@ -305,11 +306,11 @@ namespace TeamSpace
 
             CircularPictureBox avatarPicture = new CircularPictureBox
             {
-                Width = 96,
-                Height = 96,
+                Width = 112,
+                Height = 112,
                 BackColor = Color.FromArgb(238, 244, 255),
                 SizeMode = PictureBoxSizeMode.Zoom,
-                Location = new Point((Width - 96) / 2, 26),
+                Location = new Point((Width - 112) / 2, 28),
                 Image = _avatarImage,
                 Cursor = Cursors.Hand
             };
@@ -317,13 +318,13 @@ namespace TeamSpace
             Label titleLabel = new Label
             {
                 Text = _title,
-                Font = new Font("Segoe UI", 18, FontStyle.Bold),
+                Font = new Font("Segoe UI", 19, FontStyle.Bold),
                 ForeColor = _darkText,
                 AutoSize = false,
-                Width = 280,
-                Height = 62,
+                Width = 340,
+                Height = 56,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Location = new Point(25, 132),
+                Location = new Point(20, 148),
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand
             };
@@ -331,41 +332,65 @@ namespace TeamSpace
             Label subtitleLabel = new Label
             {
                 Text = _subtitle,
-                Font = new Font("Segoe UI", 11, FontStyle.Regular),
+                Font = new Font("Segoe UI", 11.5F, FontStyle.Regular),
                 ForeColor = _mutedText,
                 AutoSize = false,
-                Width = 270,
-                Height = 45,
-                TextAlign = ContentAlignment.TopCenter,
-                Location = new Point(30, 198),
+                Width = 338,
+                Height = 72,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Location = new Point(21, 204),
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand
             };
 
             Panel buttonPanel = new Panel
             {
-                Width = 132,
-                Height = 42,
+                Width = 154,
+                Height = 46,
                 BackColor = Color.Transparent,
-                Location = new Point((Width - 132) / 2, 255),
+                Location = new Point((Width - 154) / 2, 305),
                 Cursor = Cursors.Hand
             };
+
             buttonPanel.Paint += ButtonPanel_Paint;
 
             Label buttonLabel = new Label
             {
                 Text = _buttonText,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
                 ForeColor = Color.White,
                 AutoSize = false,
-                Width = 132,
-                Height = 42,
+                Width = 154,
+                Height = 46,
                 TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand
             };
 
             buttonPanel.Controls.Add(buttonLabel);
+
+            // Затемнение кнопки при наведении.
+            buttonPanel.MouseEnter += delegate
+            {
+                _buttonHovered = true;
+                buttonPanel.Invalidate();
+            };
+
+            buttonPanel.MouseLeave += delegate
+            {
+                UpdateButtonHoverState(buttonPanel);
+            };
+
+            buttonLabel.MouseEnter += delegate
+            {
+                _buttonHovered = true;
+                buttonPanel.Invalidate();
+            };
+
+            buttonLabel.MouseLeave += delegate
+            {
+                UpdateButtonHoverState(buttonPanel);
+            };
 
             Controls.Add(avatarPicture);
             Controls.Add(titleLabel);
@@ -388,13 +413,41 @@ namespace TeamSpace
             }
         }
 
+        private void UpdateButtonHoverState(Panel buttonPanel)
+        {
+            Point cursorPoint = buttonPanel.PointToClient(Cursor.Position);
+
+            if (!buttonPanel.ClientRectangle.Contains(cursorPoint))
+            {
+                _buttonHovered = false;
+                buttonPanel.Invalidate();
+            }
+        }
+
         private void ButtonPanel_Paint(object sender, PaintEventArgs e)
         {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle rect = new Rectangle(0, 0, ((Panel)sender).Width - 1, ((Panel)sender).Height - 1);
+            Panel buttonPanel = sender as Panel;
 
-            using (GraphicsPath path = GetRoundedRect(rect, 20))
-            using (SolidBrush brush = new SolidBrush(_primaryBlue))
+            if (buttonPanel == null)
+                return;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
+
+            Rectangle rect = new Rectangle(
+                0,
+                0,
+                buttonPanel.Width - 1,
+                buttonPanel.Height - 1
+            );
+
+            Color buttonColor = _buttonHovered
+                ? Color.FromArgb(21, 72, 196)
+                : _primaryBlue;
+
+            using (GraphicsPath path = GetRoundedRect(rect, 22))
+            using (SolidBrush brush = new SolidBrush(buttonColor))
             {
                 e.Graphics.FillPath(brush, path);
             }

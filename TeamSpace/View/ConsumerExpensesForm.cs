@@ -1,21 +1,24 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Windows.Forms;
 
 namespace TeamSpace.View
 {
     public partial class ConsumerExpensesForm : Form
     {
-        private SmoothMenuButton loadFileMenuButton;
-        private SmoothMenuButton buildForecastMenuButton;
+        private readonly Color mutedTextColor = Color.FromArgb(110, 118, 138);
+
+        private const int ActionButtonWidth = 174;
+        private const int ActionButtonHeight = 38;
+
+        private SmoothMenuButton openCsvButton;
+        private SmoothMenuButton buildGraphButton;
+        private SmoothMenuButton exportPngButton;
 
         private Label lblIndicator;
         private ComboBox cmbIndicator;
-        private Label lblPeriodFrom;
-        private DateTimePicker dtpPeriodFrom;
-        private Label lblPeriodTo;
-        private DateTimePicker dtpPeriodTo;
 
         public ConsumerExpensesForm()
         {
@@ -23,34 +26,117 @@ namespace TeamSpace.View
 
             DoubleBuffered = true;
 
-            ConfigureStatsPanel();
+            ConfigureFormSize();
+            ConfigureLeftTablePanel();
+            ConfigureRightLayout();
+            ConfigureStatisticsCards();
+            ConfigureSingleChart();
             ConfigureSettingsPanel();
-            ReplaceDesignerButtonsWithSmoothButtons();
+            ReplaceDesignerButtons();
 
-            Resize += delegate { AlignCustomControls(); };
+            headerPanel.SizeChanged += delegate { AlignCustomControls(); };
+            settingsPanel.SizeChanged += delegate { AlignCustomControls(); };
+
             Load += delegate { AlignCustomControls(); };
             Shown += delegate { AlignCustomControls(); };
 
             AlignCustomControls();
         }
 
-        private void ConfigureStatsPanel()
-        {
-            cardAvg.Visible = false;
-            statsLayout.Controls.Remove(cardAvg);
+        // ------------------------------------------------------------
+        // Размер формы
+        // ------------------------------------------------------------
 
+        private void ConfigureFormSize()
+        {
+            ClientSize = new Size(1320, 860);
+            MinimumSize = new Size(1320, 860);
+        }
+
+        // ------------------------------------------------------------
+        // Левая панель с таблицей
+        // ------------------------------------------------------------
+
+        private void ConfigureLeftTablePanel()
+        {
+            // Заголовок таблицы располагается немного выше.
+            gridHeaderPanel.Height = 48;
+
+            lblGridTitle.Location = new Point(4, 3);
+            lblGridTitle.Font = new Font("Segoe UI", 15F, FontStyle.Bold);
+
+            // Таблица автоматически займёт освободившееся пространство.
+            dgvExpenses.Dock = DockStyle.Fill;
+        }
+
+        // ------------------------------------------------------------
+        // Основная компоновка правой части
+        // ------------------------------------------------------------
+
+        private void ConfigureRightLayout()
+        {
+            rightLayout.SuspendLayout();
+
+            rightLayout.RowStyles.Clear();
+            rightLayout.RowCount = 3;
+
+            // Компактный блок статистики.
+            rightLayout.RowStyles.Add(
+                new RowStyle(SizeType.Absolute, 122F)
+            );
+
+            // Компактный блок настроек.
+            rightLayout.RowStyles.Add(
+                new RowStyle(SizeType.Absolute, 142F)
+            );
+
+            // Всё оставшееся место получает график.
+            rightLayout.RowStyles.Add(
+                new RowStyle(SizeType.Percent, 100F)
+            );
+
+            statsPanel.Padding = new Padding(14, 8, 14, 8);
+            settingsPanel.Padding = new Padding(18, 8, 18, 8);
+
+            rightLayout.ResumeLayout(true);
+        }
+
+        // ------------------------------------------------------------
+        // Компактные карточки статистики
+        // ------------------------------------------------------------
+
+        private void ConfigureStatisticsCards()
+        {
             statsLayout.SuspendLayout();
 
+            cardAvg.Visible = false;
+
+            statsLayout.Controls.Clear();
             statsLayout.ColumnStyles.Clear();
+            statsLayout.RowStyles.Clear();
+
             statsLayout.ColumnCount = 3;
+            statsLayout.RowCount = 1;
 
-            statsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
-            statsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
-            statsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34F));
+            statsLayout.ColumnStyles.Add(
+                new ColumnStyle(SizeType.Percent, 33.33F)
+            );
 
-            statsLayout.Controls.Remove(cardMax);
-            statsLayout.Controls.Remove(cardMin);
-            statsLayout.Controls.Remove(cardYears);
+            statsLayout.ColumnStyles.Add(
+                new ColumnStyle(SizeType.Percent, 33.33F)
+            );
+
+            statsLayout.ColumnStyles.Add(
+                new ColumnStyle(SizeType.Percent, 33.34F)
+            );
+
+            statsLayout.RowStyles.Add(
+                new RowStyle(SizeType.Percent, 100F)
+            );
+
+            ConfigureCompactCard(cardMax, lblMaxTitle, lblMaxValue);
+            ConfigureCompactCard(cardMin, lblMinTitle, lblMinValue);
+            ConfigureCompactCard(cardYears, lblYearsTitle, lblYearsValue);
 
             statsLayout.Controls.Add(cardMax, 0, 0);
             statsLayout.Controls.Add(cardMin, 1, 0);
@@ -59,96 +145,129 @@ namespace TeamSpace.View
             statsLayout.ResumeLayout(true);
         }
 
+        private void ConfigureCompactCard(
+            Panel card,
+            Label title,
+            Label value)
+        {
+            card.Margin = new Padding(7, 5, 7, 5);
+
+            title.Font = new Font("Segoe UI", 9.5F, FontStyle.Regular);
+            title.Location = new Point(14, 10);
+
+            value.Font = new Font("Segoe UI", 17F, FontStyle.Bold);
+            value.Location = new Point(14, 38);
+        }
+
+        // ------------------------------------------------------------
+        // Один увеличенный график
+        // ------------------------------------------------------------
+
+        private void ConfigureSingleChart()
+        {
+            chartLayout.SuspendLayout();
+
+            forecastChartCard.Visible = false;
+
+            chartLayout.Controls.Clear();
+            chartLayout.ColumnStyles.Clear();
+            chartLayout.RowStyles.Clear();
+
+            chartLayout.ColumnCount = 1;
+            chartLayout.RowCount = 1;
+
+            chartLayout.ColumnStyles.Add(
+                new ColumnStyle(SizeType.Percent, 100F)
+            );
+
+            chartLayout.RowStyles.Add(
+                new RowStyle(SizeType.Percent, 100F)
+            );
+
+            lblHistoryChartTitle.Text = "График зависимости расходов от года";
+            lblHistoryChartTitle.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
+
+            historyChartCard.Padding = new Padding(18, 12, 18, 18);
+
+            chartLayout.Controls.Add(historyChartCard, 0, 0);
+
+            chartLayout.ResumeLayout(true);
+        }
+
+        // ------------------------------------------------------------
+        // Настройки анализа
+        // ------------------------------------------------------------
+
         private void ConfigureSettingsPanel()
         {
+            // Старый выбор метода прогноза скрывается.
             lblMovingAverage.Visible = false;
-            cmbMovingAverage.Visible = false;
+            lblMovingAverage.Enabled = false;
 
+            cmbMovingAverage.Visible = false;
+            cmbMovingAverage.Enabled = false;
+            cmbMovingAverage.TabStop = false;
+
+            lblSettingsTitle.Location = new Point(18, 4);
+            lblSettingsTitle.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
+
+            // Поле прогноза.
             lblForecastYears.Text = "Прогноз N лет";
             lblForecastYears.AutoSize = true;
+            lblForecastYears.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+            lblForecastYears.ForeColor = mutedTextColor;
 
+            numForecastYears.Minimum = 1;
+            numForecastYears.Maximum = 15;
+            numForecastYears.Value = 3;
+            numForecastYears.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
+            numForecastYears.Size = new Size(108, 30);
+
+            // Новый выбор показателя.
             lblIndicator = new Label
             {
                 Text = "Показатель:",
                 AutoSize = true,
-                Font = new Font("Segoe UI", 10F),
-                ForeColor = Color.FromArgb(110, 118, 138),
+                Font = new Font("Segoe UI", 10F, FontStyle.Regular),
+                ForeColor = mutedTextColor,
                 BackColor = Color.Transparent
             };
 
             cmbIndicator = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 10F),
-                Size = new Size(175, 31)
+                Font = new Font("Segoe UI", 10F, FontStyle.Regular),
+                Size = new Size(190, 31),
+                FlatStyle = FlatStyle.Standard
             };
 
             cmbIndicator.Items.AddRange(new object[]
             {
                 "Общие расходы",
-                "Продовольственные товары",
-                "Непродовольственные товары",
-                "Услуги"
+                "Продукты питания",
+                "Одежда и обувь",
+                "Жилищные услуги",
+                "Транспорт",
+                "Здравоохранение",
+                "Образование"
             });
 
             cmbIndicator.SelectedIndex = 0;
 
-            lblPeriodFrom = new Label
-            {
-                Text = "Период с:",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 10F),
-                ForeColor = Color.FromArgb(110, 118, 138),
-                BackColor = Color.Transparent
-            };
-
-            dtpPeriodFrom = new DateTimePicker
-            {
-                Font = new Font("Segoe UI", 10F),
-                Format = DateTimePickerFormat.Custom,
-                CustomFormat = "yyyy",
-                ShowUpDown = false,
-                Size = new Size(105, 30),
-                Value = DateTime.Today.AddYears(-14)
-            };
-
-            lblPeriodTo = new Label
-            {
-                Text = "по:",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 10F),
-                ForeColor = Color.FromArgb(110, 118, 138),
-                BackColor = Color.Transparent
-            };
-
-            dtpPeriodTo = new DateTimePicker
-            {
-                Font = new Font("Segoe UI", 10F),
-                Format = DateTimePickerFormat.Custom,
-                CustomFormat = "yyyy",
-                ShowUpDown = false,
-                Size = new Size(105, 30),
-                Value = DateTime.Today
-            };
-
             settingsPanel.Controls.Add(lblIndicator);
             settingsPanel.Controls.Add(cmbIndicator);
-            settingsPanel.Controls.Add(lblPeriodFrom);
-            settingsPanel.Controls.Add(dtpPeriodFrom);
-            settingsPanel.Controls.Add(lblPeriodTo);
-            settingsPanel.Controls.Add(dtpPeriodTo);
 
             lblIndicator.BringToFront();
             cmbIndicator.BringToFront();
-            lblPeriodFrom.BringToFront();
-            dtpPeriodFrom.BringToFront();
-            lblPeriodTo.BringToFront();
-            dtpPeriodTo.BringToFront();
             lblForecastYears.BringToFront();
             numForecastYears.BringToFront();
         }
 
-        private void ReplaceDesignerButtonsWithSmoothButtons()
+        // ------------------------------------------------------------
+        // Сглаженные кнопки
+        // ------------------------------------------------------------
+
+        private void ReplaceDesignerButtons()
         {
             btnLoadFile.Visible = false;
             btnLoadFile.Enabled = false;
@@ -156,34 +275,60 @@ namespace TeamSpace.View
             btnBuildForecast.Visible = false;
             btnBuildForecast.Enabled = false;
 
-            loadFileMenuButton = CreateMenuButton("Открыть файл", 170, btnLoadFile_Click);
-            buildForecastMenuButton = CreateMenuButton("Построить график", 190, btnBuildForecast_Click);
+            openCsvButton = CreateMenuButton(
+                "Открыть CSV",
+                178,
+                42,
+                btnLoadFile_Click
+            );
 
-            headerPanel.Controls.Add(loadFileMenuButton);
-            settingsPanel.Controls.Add(buildForecastMenuButton);
+            buildGraphButton = CreateMenuButton(
+                "Построить график",
+                ActionButtonWidth,
+                ActionButtonHeight,
+                btnBuildForecast_Click
+            );
 
-            loadFileMenuButton.BringToFront();
-            buildForecastMenuButton.BringToFront();
+            exportPngButton = CreateMenuButton(
+                "Экспорт в PNG",
+                ActionButtonWidth,
+                ActionButtonHeight,
+                btnExportPng_Click
+            );
 
-            headerPanel.Resize += delegate { AlignCustomControls(); };
-            settingsPanel.Resize += delegate { AlignCustomControls(); };
+            headerPanel.Controls.Add(openCsvButton);
+            settingsPanel.Controls.Add(buildGraphButton);
+            settingsPanel.Controls.Add(exportPngButton);
+
+            openCsvButton.BringToFront();
+            buildGraphButton.BringToFront();
+            exportPngButton.BringToFront();
         }
 
-        private SmoothMenuButton CreateMenuButton(string text, int width, EventHandler clickHandler)
+        private SmoothMenuButton CreateMenuButton(
+            string text,
+            int width,
+            int height,
+            EventHandler clickHandler)
         {
             SmoothMenuButton button = new SmoothMenuButton
             {
                 Text = text,
-                Size = new Size(width, 42),
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Size = new Size(width, height),
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
                 ForeColor = Color.White,
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
 
             button.Click += clickHandler;
 
             return button;
         }
+
+        // ------------------------------------------------------------
+        // Расстановка элементов
+        // ------------------------------------------------------------
 
         private void AlignCustomControls()
         {
@@ -193,14 +338,14 @@ namespace TeamSpace.View
 
         private void AlignHeaderButton()
         {
-            if (loadFileMenuButton == null)
+            if (openCsvButton == null)
                 return;
 
             int x = headerPanel.ClientSize.Width
                     - headerPanel.Padding.Right
-                    - loadFileMenuButton.Width;
+                    - openCsvButton.Width;
 
-            loadFileMenuButton.Location = new Point(
+            openCsvButton.Location = new Point(
                 Math.Max(headerPanel.Padding.Left, x),
                 34
             );
@@ -211,111 +356,119 @@ namespace TeamSpace.View
             if (settingsPanel == null)
                 return;
 
-            int left = 24;
-            int labelY = 39;
-            int controlY = 67;
+            int indicatorX = 24;
+            int forecastX = 300;
+
+            int labelY = 47;
+            int controlY = 72;
+
+            int buttonX = settingsPanel.ClientSize.Width
+                          - settingsPanel.Padding.Right
+                          - ActionButtonWidth;
+
+            buttonX = Math.Max(470, buttonX);
 
             if (lblIndicator != null)
-                lblIndicator.Location = new Point(left, labelY);
+                lblIndicator.Location = new Point(indicatorX, labelY);
 
             if (cmbIndicator != null)
-                cmbIndicator.Location = new Point(left, controlY);
-
-            int periodFromX = left + 205;
-
-            if (lblPeriodFrom != null)
-                lblPeriodFrom.Location = new Point(periodFromX, labelY);
-
-            if (dtpPeriodFrom != null)
-                dtpPeriodFrom.Location = new Point(periodFromX, controlY);
-
-            int periodToX = periodFromX + 130;
-
-            if (lblPeriodTo != null)
-                lblPeriodTo.Location = new Point(periodToX, labelY);
-
-            if (dtpPeriodTo != null)
-                dtpPeriodTo.Location = new Point(periodToX, controlY);
-
-            int forecastX = periodToX + 130;
+            {
+                cmbIndicator.Size = new Size(190, 31);
+                cmbIndicator.Location = new Point(indicatorX, controlY);
+            }
 
             lblForecastYears.Location = new Point(forecastX, labelY);
             numForecastYears.Location = new Point(forecastX, controlY);
-            numForecastYears.Size = new Size(105, 30);
 
-            if (buildForecastMenuButton != null)
+            if (buildGraphButton != null)
             {
-                int x = settingsPanel.ClientSize.Width
-                        - settingsPanel.Padding.Right
-                        - buildForecastMenuButton.Width;
+                buildGraphButton.Location = new Point(buttonX, 25);
+            }
 
-                buildForecastMenuButton.Location = new Point(
-                    Math.Max(forecastX + 125, x),
-                    61
-                );
+            if (exportPngButton != null)
+            {
+                exportPngButton.Location = new Point(buttonX, 72);
             }
         }
 
+        // Метод оставлен, так как он всё ещё привязан в Designer.
         private void MenuBlueButton_Paint(object sender, PaintEventArgs e)
         {
-            // Старые Panel-кнопки скрыты.
-            // Новые кнопки рисуются через SmoothMenuButton.
         }
+
+        // ------------------------------------------------------------
+        // Открытие CSV
+        // ------------------------------------------------------------
 
         private void btnLoadFile_Click(object sender, EventArgs e)
         {
             try
             {
+                openFileDialog1.Filter =
+                    "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+
+                openFileDialog1.Title = "Открыть CSV-файл с данными";
+
                 if (openFileDialog1.ShowDialog() == DialogResult.OK)
                 {
                     MessageBox.Show(
-                        "Файл выбран:\n" + openFileDialog1.FileName,
-                        "Открытие файла",
+                        "CSV-файл выбран:\n" + openFileDialog1.FileName,
+                        "Открытие CSV",
                         MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
+                        MessageBoxIcon.Information
+                    );
+
+                    /*
+                     * Здесь позже можно реализовать:
+                     * - чтение CSV-файла;
+                     * - заполнение dgvExpenses;
+                     * - расчёт минимального и максимального изменения;
+                     * - обновление количества периодов;
+                     * - построение графика.
+                     */
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "Ошибка при открытии файла:\n" + ex.Message,
+                    "Ошибка при открытии CSV-файла:\n" + ex.Message,
                     "Ошибка",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                    MessageBoxIcon.Error
+                );
             }
         }
+
+        // ------------------------------------------------------------
+        // Построение графика
+        // ------------------------------------------------------------
 
         private void btnBuildForecast_Click(object sender, EventArgs e)
         {
             try
             {
-                string indicator = cmbIndicator != null && cmbIndicator.SelectedItem != null
+                string indicator = cmbIndicator != null &&
+                                   cmbIndicator.SelectedItem != null
                     ? cmbIndicator.SelectedItem.ToString()
                     : "Показатель не выбран";
 
-                int fromYear = dtpPeriodFrom != null ? dtpPeriodFrom.Value.Year : 0;
-                int toYear = dtpPeriodTo != null ? dtpPeriodTo.Value.Year : 0;
-                int years = (int)numForecastYears.Value;
-
-                if (fromYear > toYear)
-                {
-                    MessageBox.Show(
-                        "Год начала периода не может быть больше года окончания.",
-                        "Ошибка периода",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-
-                    return;
-                }
+                int forecastYears = (int)numForecastYears.Value;
 
                 MessageBox.Show(
-                    $"Построение графика.\n\n" +
-                    $"Показатель: {indicator}\n" +
-                    $"Период: {fromYear} — {toYear}\n" +
-                    $"Прогноз: {years} лет",
+                    "Построение графика.\n\n" +
+                    "Показатель: " + indicator + "\n" +
+                    "Прогноз: " + forecastYears + " лет",
                     "График",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                    MessageBoxIcon.Information
+                );
+
+                /*
+                 * Здесь позже можно реализовать единый график:
+                 * - исходные значения выбранного показателя;
+                 * - прогноз на выбранное число лет;
+                 * - отображение обеих линий в pnlHistoryChart.
+                 */
             }
             catch (Exception ex)
             {
@@ -323,16 +476,94 @@ namespace TeamSpace.View
                     "Ошибка при построении графика:\n" + ex.Message,
                     "Ошибка",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                    MessageBoxIcon.Error
+                );
+            }
+        }
+
+        // ------------------------------------------------------------
+        // Экспорт графика в PNG
+        // ------------------------------------------------------------
+
+        private void btnExportPng_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (pnlHistoryChart.Width <= 0 || pnlHistoryChart.Height <= 0)
+                {
+                    MessageBox.Show(
+                        "Область графика недоступна для экспорта.",
+                        "Экспорт PNG",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+
+                    return;
+                }
+
+                using (SaveFileDialog saveDialog = new SaveFileDialog())
+                {
+                    saveDialog.Filter = "PNG image (*.png)|*.png";
+                    saveDialog.Title = "Экспортировать график в PNG";
+                    saveDialog.FileName = "consumer_expenses_chart.png";
+                    saveDialog.DefaultExt = "png";
+                    saveDialog.AddExtension = true;
+
+                    if (saveDialog.ShowDialog() != DialogResult.OK)
+                        return;
+
+                    using (Bitmap bitmap = new Bitmap(
+                        pnlHistoryChart.Width,
+                        pnlHistoryChart.Height))
+                    {
+                        pnlHistoryChart.DrawToBitmap(
+                            bitmap,
+                            new Rectangle(
+                                0,
+                                0,
+                                pnlHistoryChart.Width,
+                                pnlHistoryChart.Height
+                            )
+                        );
+
+                        bitmap.Save(saveDialog.FileName, ImageFormat.Png);
+                    }
+
+                    MessageBox.Show(
+                        "График успешно сохранён в PNG:\n" +
+                        saveDialog.FileName,
+                        "Экспорт завершён",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Ошибка при экспорте графика в PNG:\n" + ex.Message,
+                    "Ошибка",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
             }
         }
     }
 
+    // ------------------------------------------------------------
+    // Сглаженная кнопка в стиле главного меню
+    // ------------------------------------------------------------
+
     public class SmoothMenuButton : Control
     {
-        private readonly Color normalColor = Color.FromArgb(0x1A, 0x56, 0xE8);
-        private readonly Color hoverColor = Color.FromArgb(21, 72, 196);
-        private readonly Color pressedColor = Color.FromArgb(16, 61, 170);
+        private readonly Color normalColor =
+            Color.FromArgb(0x1A, 0x56, 0xE8);
+
+        private readonly Color hoverColor =
+            Color.FromArgb(21, 72, 196);
+
+        private readonly Color pressedColor =
+            Color.FromArgb(16, 61, 170);
 
         private bool hovered;
         private bool pressed;
@@ -345,13 +576,15 @@ namespace TeamSpace.View
                 ControlStyles.OptimizedDoubleBuffer |
                 ControlStyles.ResizeRedraw |
                 ControlStyles.SupportsTransparentBackColor,
-                true);
+                true
+            );
 
             BackColor = Color.Transparent;
             ForeColor = Color.White;
             Size = new Size(132, 42);
             Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             Cursor = Cursors.Hand;
+            TabStop = true;
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
@@ -383,9 +616,15 @@ namespace TeamSpace.View
             else if (hovered)
                 currentColor = hoverColor;
 
-            RectangleF rect = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
+            RectangleF rect = new RectangleF(
+                0.5F,
+                0.5F,
+                Width - 1F,
+                Height - 1F
+            );
 
-            using (GraphicsPath path = CreateRoundedRectangle(rect, Height / 2f))
+            using (GraphicsPath path =
+                   CreateRoundedRectangle(rect, Height / 2F))
             using (SolidBrush brush = new SolidBrush(currentColor))
             {
                 e.Graphics.FillPath(brush, path);
@@ -400,13 +639,15 @@ namespace TeamSpace.View
                 TextFormatFlags.HorizontalCenter |
                 TextFormatFlags.VerticalCenter |
                 TextFormatFlags.EndEllipsis |
-                TextFormatFlags.NoPadding);
+                TextFormatFlags.NoPadding
+            );
         }
 
         protected override void OnMouseEnter(EventArgs e)
         {
             hovered = true;
             Invalidate();
+
             base.OnMouseEnter(e);
         }
 
@@ -415,6 +656,7 @@ namespace TeamSpace.View
             hovered = false;
             pressed = false;
             Invalidate();
+
             base.OnMouseLeave(e);
         }
 
@@ -437,11 +679,36 @@ namespace TeamSpace.View
             base.OnMouseUp(e);
         }
 
-        private GraphicsPath CreateRoundedRectangle(RectangleF rect, float radius)
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
+            {
+                pressed = true;
+                Invalidate();
+            }
+
+            base.OnKeyDown(e);
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
+            {
+                pressed = false;
+                Invalidate();
+                OnClick(EventArgs.Empty);
+            }
+
+            base.OnKeyUp(e);
+        }
+
+        private GraphicsPath CreateRoundedRectangle(
+            RectangleF rect,
+            float radius)
         {
             GraphicsPath path = new GraphicsPath();
 
-            float diameter = radius * 2f;
+            float diameter = radius * 2F;
 
             if (diameter > rect.Width)
                 diameter = rect.Width;
@@ -449,7 +716,12 @@ namespace TeamSpace.View
             if (diameter > rect.Height)
                 diameter = rect.Height;
 
-            RectangleF arc = new RectangleF(rect.X, rect.Y, diameter, diameter);
+            RectangleF arc = new RectangleF(
+                rect.X,
+                rect.Y,
+                diameter,
+                diameter
+            );
 
             path.AddArc(arc, 180, 90);
 
