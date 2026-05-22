@@ -14,6 +14,20 @@ using TeamSpace.Services;
 
 namespace TeamSpace.View
 {
+    /// Форма модуля анализа потребительских расходов.
+
+    /// На форме обеспечиваются:
+    /// - загрузка исходных данных из CSV-файла через сервис FileParser;
+    /// - отображение загруженных записей в табличной области;
+    /// - выбор анализируемого показателя и периода скользящей средней;
+    /// - отображение статистических карточек;
+    /// - формирование прогнозного ряда через сервис MovingAverageForecast;
+    /// - визуализация фактических и прогнозных значений;
+    /// - экспорт построенного графика в изображение формата PNG.
+
+    /// Расчётная логика не размещается непосредственно в форме:
+    /// статистика и прогнозирование выполняются сервисами,
+    /// а данные представлены объектами модели ConsumerExpenseData.
     public partial class ConsumerExpensesForm : Form
     {
         private readonly Color mutedTextColor = Color.FromArgb(110, 118, 138);
@@ -21,6 +35,10 @@ namespace TeamSpace.View
         private const int ActionButtonWidth = 174;
         private const int ActionButtonHeight = 38;
         private const int DefaultMovingAverageWindow = 3;
+
+        // Смещение кнопок влево относительно текущего положения.
+        private const int HeaderButtonLeftOffset = 40;
+        private const int SettingsButtonsLeftOffset = 30;
 
         private SmoothMenuButton openCsvButton;
         private SmoothMenuButton buildGraphButton;
@@ -36,12 +54,23 @@ namespace TeamSpace.View
         private ExpensesChartControl expensesChart;
         private bool chartWasBuilt;
 
+        /// Создаёт форму и выполняет её первоначальную визуальную настройку.
+
+        /// После стандартной инициализации компонентов выполняется
+        /// конфигурирование областей формы, создаются дополнительные
+        /// элементы управления и назначаются обработчики выравнивания.
         public ConsumerExpensesForm()
         {
+            // Выполняется загрузка элементов управления,
+            // сформированных средствами визуального конструктора формы.
             InitializeComponent();
 
+            // Включение двойной буферизации уменьшает мерцание
+            // при перерисовке панелей и изменении размеров окна.
             DoubleBuffered = true;
 
+            // Выполняется последовательная настройка всех функциональных
+            // областей формы и замена стандартных кнопок стилизованными.
             ConfigureFormSize();
             ConfigureLeftTablePanel();
             ConfigureRightLayout();
@@ -50,6 +79,8 @@ namespace TeamSpace.View
             ConfigureSettingsPanel();
             ReplaceDesignerButtons();
 
+            // При изменении размеров контейнеров созданные программно
+            // элементы заново выравниваются относительно их границ.
             headerPanel.SizeChanged += delegate { AlignCustomControls(); };
             settingsPanel.SizeChanged += delegate { AlignCustomControls(); };
 
@@ -63,6 +94,11 @@ namespace TeamSpace.View
         // Размер формы
         // ------------------------------------------------------------
 
+        /// Устанавливает первоначальный и минимально допустимый размер формы.
+
+        /// Ограничение минимального размера требуется для сохранения
+        /// корректного расположения таблицы, карточек, панели настроек
+        /// и области графика.
         private void ConfigureFormSize()
         {
             ClientSize = new Size(1320, 860);
@@ -73,6 +109,12 @@ namespace TeamSpace.View
         // Левая панель с таблицей
         // ------------------------------------------------------------
 
+        /// Настраивает левую область, предназначенную для отображения
+        /// загруженных годовых данных о потребительских расходах.
+
+        /// В методе задаются параметры заголовка таблицы,
+        /// режим только для чтения, стиль выделения строк,
+        /// автоматический подбор ширины столбцов и параметры прокрутки.
         private void ConfigureLeftTablePanel()
         {
             gridHeaderPanel.Height = 48;
@@ -111,6 +153,11 @@ namespace TeamSpace.View
         // Правая часть формы
         // ------------------------------------------------------------
 
+        /// Настраивает компоновку правой части формы.
+
+        /// Правая область разбивается на три строки:
+        /// карточки статистики, панель параметров анализа
+        /// и оставшееся пространство для графика.
         private void ConfigureRightLayout()
         {
             rightLayout.SuspendLayout();
@@ -140,6 +187,12 @@ namespace TeamSpace.View
         // Карточки статистики
         // ------------------------------------------------------------
 
+        /// Формирует область карточек статистики.
+
+        /// В модуле расходов отображаются три показателя:
+        /// максимальное изменение, минимальное изменение
+        /// и количество доступных периодов наблюдения.
+        /// Неиспользуемая карточка среднего значения скрывается.
         private void ConfigureStatisticsCards()
         {
             statsLayout.SuspendLayout();
@@ -184,6 +237,7 @@ namespace TeamSpace.View
             statsLayout.ResumeLayout(true);
         }
 
+        /// Применяет единое компактное оформление к карточке статистики.
         private void ConfigureCompactCard(
             Panel card,
             Label title,
@@ -202,6 +256,12 @@ namespace TeamSpace.View
         // Один график фактических данных и прогноза
         // ------------------------------------------------------------
 
+        /// Настраивает единственную область графика, на которой
+        /// совместно отображаются фактические значения и прогноз.
+
+        /// Дополнительная карточка отдельного прогнозного графика
+        /// скрывается, а в основную карточку добавляется
+        /// пользовательский элемент ExpensesChartControl.
         private void ConfigureSingleChart()
         {
             chartLayout.SuspendLayout();
@@ -247,8 +307,20 @@ namespace TeamSpace.View
         // Настройки анализа
         // ------------------------------------------------------------
 
+        /// Настраивает панель параметров анализа.
+
+        /// На панели создаются и размещаются элементы выбора:
+        /// - показателя расходов;
+        /// - периода скользящей средней;
+        /// - числа будущих лет прогнозирования.
+
+        /// До успешной загрузки CSV-файла элементы анализа
+        /// остаются недоступными для изменения.
         private void ConfigureSettingsPanel()
         {
+            // Элементы, оставшиеся от исходного варианта формы,
+            // скрываются, поскольку вместо них применяется отдельный
+            // числовой выбор периода скользящей средней.
             lblMovingAverage.Visible = false;
             lblMovingAverage.Enabled = false;
 
@@ -292,6 +364,9 @@ namespace TeamSpace.View
                 Enabled = false
             };
 
+            // Список показателей берётся из модели данных,
+            // благодаря чему названия столбцов и варианты выбора
+            // поддерживаются в одном месте проекта.
             cmbIndicator.Items.AddRange(
                 ConsumerExpenseData.IndicatorNames
                     .Cast<object>()
@@ -342,6 +417,12 @@ namespace TeamSpace.View
         // Сглаженные кнопки
         // ------------------------------------------------------------
 
+        /// Заменяет стандартные кнопки, созданные в Designer,
+        /// на пользовательские сглаженные кнопки единого стиля.
+
+        /// Стандартные элементы скрываются, после чего на форму
+        /// добавляются кнопки загрузки CSV, построения графика
+        /// и экспорта результата в PNG.
         private void ReplaceDesignerButtons()
         {
             btnLoadFile.Visible = false;
@@ -380,6 +461,8 @@ namespace TeamSpace.View
             exportPngButton.BringToFront();
         }
 
+        /// Создаёт пользовательскую кнопку меню с заданными размерами
+        /// и назначенным обработчиком нажатия.
         private SmoothMenuButton CreateMenuButton(
             string text,
             int width,
@@ -405,20 +488,30 @@ namespace TeamSpace.View
         // Расстановка элементов
         // ------------------------------------------------------------
 
+        /// Выполняет общее выравнивание динамически созданных элементов.
+
+        /// Метод вызывается после создания интерфейса и при изменении
+        /// размеров контейнеров, чтобы сохранить требуемое расположение.
         private void AlignCustomControls()
         {
             AlignHeaderButton();
             AlignSettingsControls();
         }
 
+        /// Выравнивает кнопку открытия CSV-файла
+        /// относительно правой границы заголовочной панели.
         private void AlignHeaderButton()
         {
             if (openCsvButton == null)
                 return;
 
+            // Координата X вычисляется от правого края панели.
+            // Дополнительное смещение уменьшает значение X,
+            // поэтому кнопка перемещается левее.
             int x = headerPanel.ClientSize.Width
                     - headerPanel.Padding.Right
-                    - openCsvButton.Width;
+                    - openCsvButton.Width
+                    - HeaderButtonLeftOffset;
 
             openCsvButton.Location = new Point(
                 Math.Max(headerPanel.Padding.Left, x),
@@ -426,6 +519,10 @@ namespace TeamSpace.View
             );
         }
 
+        /// Вычисляет и назначает положения элементов панели анализа.
+
+        /// Параметры располагаются слева, а кнопки построения графика
+        /// и экспорта выравниваются по правой стороне панели.
         private void AlignSettingsControls()
         {
             if (settingsPanel == null)
@@ -438,11 +535,16 @@ namespace TeamSpace.View
             int labelY = 47;
             int controlY = 72;
 
+            // Координата обеих кнопок рассчитывается от правой границы панели.
+            // Вычитание SettingsButtonsLeftOffset перемещает кнопки левее.
             int buttonX = settingsPanel.ClientSize.Width
                           - settingsPanel.Padding.Right
-                          - ActionButtonWidth;
+                          - ActionButtonWidth
+                          - SettingsButtonsLeftOffset;
 
-            buttonX = Math.Max(430, buttonX);
+            // Минимальная граница также немного уменьшена,
+            // чтобы смещение сохранялось при небольшом размере панели.
+            buttonX = Math.Max(395, buttonX);
 
             if (lblIndicator != null)
                 lblIndicator.Location = new Point(indicatorX, labelY);
@@ -474,6 +576,11 @@ namespace TeamSpace.View
         }
 
         // Метод оставлен, так как он привязан в Designer.
+
+        /// Сохраняет совместимость с обработчиком, назначенным в Designer.
+
+        /// Фактическая отрисовка актуальных кнопок выполняется
+        /// пользовательским классом SmoothMenuButton.
         private void MenuBlueButton_Paint(object sender, PaintEventArgs e)
         {
         }
@@ -482,6 +589,7 @@ namespace TeamSpace.View
         // Доступность полей анализа
         // ------------------------------------------------------------
 
+        /// Управляет доступностью элементов выбора параметров анализа.
         private void SetAnalysisInputsEnabled(bool enabled)
         {
             if (cmbIndicator != null)
@@ -494,8 +602,15 @@ namespace TeamSpace.View
                 numForecastYears.Enabled = enabled;
         }
 
+        /// Сбрасывает ранее загруженные данные и результаты анализа.
+
+        /// Метод подготавливает форму к чтению нового CSV-файла:
+        /// очищаются модели, таблица и график, сбрасываются карточки
+        /// статистики и временно блокируются параметры анализа.
         private void ResetLoadedData()
         {
+            // Удаляется признак ранее построенного графика
+            // и создаётся новый пустой список моделей расходов.
             chartWasBuilt = false;
             expensesData = new List<ConsumerExpenseData>();
 
@@ -522,12 +637,22 @@ namespace TeamSpace.View
         // Загрузка CSV-файла
         // ------------------------------------------------------------
 
+        /// Обрабатывает нажатие кнопки открытия CSV-файла.
+
+        /// Выполняются поиск файла consumer_expenses.csv,
+        /// сброс предыдущего состояния, загрузка данных через FileParser,
+        /// заполнение таблицы, расчёт статистики и настройка диапазона
+        /// допустимого периода скользящей средней.
         private void btnLoadFile_Click(object sender, EventArgs e)
         {
             try
             {
+                // Определяется ожидаемое расположение CSV-файла
+                // с исходными данными модуля расходов.
                 string filePath = FindConsumerExpensesCsvPath();
 
+                // При отсутствии файла расчёт и отображение
+                // новых данных не выполняются.
                 if (!File.Exists(filePath))
                 {
                     MessageBox.Show(
@@ -542,10 +667,16 @@ namespace TeamSpace.View
                     return;
                 }
 
+                // Предыдущее состояние формы очищается перед загрузкой
+                // нового набора данных.
                 ResetLoadedData();
 
+                // Чтение и преобразование CSV выполняются сервисом,
+                // возвращающим список объектов модели расходов.
                 expensesData = FileParser.LoadConsumerExpensesFromCsv(filePath);
 
+                // После успешной загрузки обновляются таблица, карточки
+                // статистики и доступный диапазон периода прогноза.
                 ShowExpensesInGrid();
                 UpdateStatistics();
                 ConfigureAverageWindowRange();
@@ -573,6 +704,11 @@ namespace TeamSpace.View
             }
         }
 
+        /// Выполняет поиск CSV-файла расходов в каталоге Data.
+
+        /// Сначала проверяется папка рядом с запущенным приложением.
+        /// Если файл там отсутствует, выполняется подъём по родительским
+        /// каталогам для поиска папки Data в структуре проекта.
         private string FindConsumerExpensesCsvPath()
         {
             string outputDirectoryPath = Path.Combine(
@@ -604,6 +740,11 @@ namespace TeamSpace.View
             return outputDirectoryPath;
         }
 
+        /// Настраивает допустимый диапазон периода скользящей средней
+        /// на основании количества загруженных годовых записей.
+
+        /// Минимально допускается два периода, а максимальное значение
+        /// соответствует числу доступных строк исходных данных.
         private void ConfigureAverageWindowRange()
         {
             if (numAverageWindow == null)
@@ -641,8 +782,14 @@ namespace TeamSpace.View
         // Заполнение таблицы
         // ------------------------------------------------------------
 
+        /// Отображает список моделей ConsumerExpenseData в таблице формы.
+
+        /// После привязки источника задаются формат денежных столбцов,
+        /// выравнивание значений и запрет ручной сортировки столбцов.
         private void ShowExpensesInGrid()
         {
+            // Предыдущая привязка удаляется, после чего таблице
+            // назначается актуальный список объектов модели.
             dgvExpenses.DataSource = null;
             dgvExpenses.DataSource = expensesData;
 
@@ -675,22 +822,40 @@ namespace TeamSpace.View
         // Статистика
         // ------------------------------------------------------------
 
+        /// Обрабатывает изменение выбранного показателя расходов.
+
+        /// После выбора другого показателя пересчитываются карточки
+        /// статистики и, при наличии построенного графика,
+        /// обновляется прогнозное отображение.
         private void cmbIndicator_SelectedIndexChanged(object sender, EventArgs e)
         {
             UpdateStatistics();
             RebuildChartIfAlreadyBuilt();
         }
 
+        /// Обрабатывает изменение количества прогнозируемых лет.
+
+        /// При уже построенном графике выполняется его обновление
+        /// с учётом нового горизонта прогнозирования.
         private void numForecastYears_ValueChanged(object sender, EventArgs e)
         {
             RebuildChartIfAlreadyBuilt();
         }
 
+        /// Обрабатывает изменение периода скользящей средней.
+
+        /// При наличии ранее построенного графика инициируется
+        /// повторный расчёт прогнозных значений.
         private void numAverageWindow_ValueChanged(object sender, EventArgs e)
         {
             RebuildChartIfAlreadyBuilt();
         }
 
+        /// Перестраивает график после изменения параметров только в случае,
+        /// если до этого уже было выполнено его первоначальное построение.
+
+        /// Возможная ошибка повторного расчёта перехватывается
+        /// и выводится в отдельном информационном сообщении.
         private void RebuildChartIfAlreadyBuilt()
         {
             if (!chartWasBuilt)
@@ -711,8 +876,15 @@ namespace TeamSpace.View
             }
         }
 
+        /// Запрашивает статистику выбранного показателя у сервиса
+        /// StatisticsCalculator и выводит результат в карточки формы.
+
+        /// Максимальное и минимальное процентные изменения
+        /// форматируются с использованием русской культуры.
         private void UpdateStatistics()
         {
+            // Расчёт процентной динамики не выполняется формой напрямую:
+            // данные и выбранный показатель передаются сервису статистики.
             ConsumerExpenseStatistics statistics =
                 StatisticsCalculator.CalculateExpenseStatistics(
                     expensesData,
@@ -737,6 +909,7 @@ namespace TeamSpace.View
                 ) + " %";
         }
 
+        /// Возвращает наименование показателя, выбранного для анализа.
         private string GetSelectedIndicator()
         {
             if (cmbIndicator != null && cmbIndicator.SelectedItem != null)
@@ -745,6 +918,7 @@ namespace TeamSpace.View
             return "Общие расходы";
         }
 
+        /// Возвращает установленный размер окна скользящей средней.
         private int GetSelectedMovingAverageWindow()
         {
             if (numAverageWindow != null && numAverageWindow.Enabled)
@@ -757,6 +931,11 @@ namespace TeamSpace.View
         // Прогнозирование методом скользящей средней
         // ------------------------------------------------------------
 
+        /// Обрабатывает нажатие кнопки построения графика.
+
+        /// Перед расчётом проверяется наличие не менее двух периодов
+        /// исходных данных. При успешной проверке строится график
+        /// и устанавливается признак наличия рассчитанного результата.
         private void btnBuildForecast_Click(object sender, EventArgs e)
         {
             try
@@ -799,6 +978,11 @@ namespace TeamSpace.View
             }
         }
 
+        /// Формирует фактический и прогнозный ряды выбранного показателя.
+        /// Исходные записи сортируются по году, преобразуются в точки
+        /// графика, после чего значения передаются общему сервису
+        /// прогнозирования методом скользящей средней.
+        /// Сформированные ряды передаются элементу ExpensesChartControl.
         private void BuildForecastChart()
         {
             string indicator = GetSelectedIndicator();
@@ -811,6 +995,8 @@ namespace TeamSpace.View
                 );
             }
 
+            // Исходные записи располагаются в хронологическом порядке,
+            // необходимом для корректного отображения временного ряда.
             List<ConsumerExpenseData> orderedData = expensesData
                 .OrderBy(item => item.Year)
                 .ToList();
@@ -828,6 +1014,8 @@ namespace TeamSpace.View
 
             int forecastYears = (int)numForecastYears.Value;
 
+            // Вычисление будущих значений делегируется общему сервису
+            // прогнозирования, поддерживающему денежный тип decimal.
             List<decimal> forecastValues =
                 MovingAverageForecast.CalculateForecast(
                     historicalValues,
@@ -844,6 +1032,8 @@ namespace TeamSpace.View
                 ))
                 .ToList();
 
+            // Фактический и прогнозный ряды передаются
+            // специализированному элементу отрисовки графика.
             expensesChart.SetData(
                 actualPoints,
                 forecastPoints,
@@ -856,6 +1046,11 @@ namespace TeamSpace.View
         // Экспорт графика в PNG
         // ------------------------------------------------------------
 
+        /// Обрабатывает экспорт построенного графика в PNG-файл.
+
+        /// При наличии данных открывается диалог выбора места сохранения,
+        /// текущее изображение элемента графика копируется в Bitmap
+        /// и сохраняется в выбранный PNG-файл.
         private void btnExportPng_Click(object sender, EventArgs e)
         {
             try
@@ -885,6 +1080,8 @@ namespace TeamSpace.View
                     if (saveDialog.ShowDialog() != DialogResult.OK)
                         return;
 
+                    // Создаётся растровое изображение с размерами
+                    // текущей области графика для дальнейшего сохранения.
                     using (Bitmap bitmap = new Bitmap(
                         expensesChart.Width,
                         expensesChart.Height))
@@ -927,14 +1124,23 @@ namespace TeamSpace.View
     // Точка ряда данных
     // ------------------------------------------------------------
 
+    /// Модель одной точки временного ряда, отображаемой на графике.
+
+    /// Экземпляр хранит год наблюдения или прогнозирования
+    /// и соответствующее денежное значение выбранного показателя.
     public class ExpensePoint
     {
+        /// Год, соответствующий значению точки.
         public int Year { get; private set; }
 
+        /// Значение выбранного показателя расходов за указанный год.
         public decimal Value { get; private set; }
 
+        /// Создаёт точку временного ряда с заданными координатами данных.
         public ExpensePoint(int year, decimal value)
         {
+            // Переданные значения сохраняются в свойствах модели
+            // и впоследствии используются при вычислении координат графика.
             Year = year;
             Value = value;
         }
@@ -944,6 +1150,13 @@ namespace TeamSpace.View
     // Пользовательский график данных и прогноза
     // ------------------------------------------------------------
 
+    /// Пользовательский элемент управления для визуализации
+    /// фактических и прогнозных значений потребительских расходов.
+
+    /// Отрисовка выполняется средствами Graphics без стандартного
+    /// компонента диаграмм: отображаются сетка, оси, подписи годов,
+    /// легенда, фактическая линия, прогнозная линия
+    /// и выделенная фоновая область прогноза.
     public class ExpensesChartControl : Control
     {
         private readonly Color actualLineColor =
@@ -970,6 +1183,8 @@ namespace TeamSpace.View
         private string indicatorName;
         private int windowSize;
 
+        /// Возвращает признак наличия фактических точек,
+        /// достаточных для отображения графика.
         public bool HasData
         {
             get
@@ -978,6 +1193,8 @@ namespace TeamSpace.View
             }
         }
 
+        /// Создаёт элемент графика и включает режимы качественной
+        /// пользовательской отрисовки с двойной буферизацией.
         public ExpensesChartControl()
         {
             SetStyle(
@@ -990,25 +1207,33 @@ namespace TeamSpace.View
 
             BackColor = Color.White;
 
+            // При создании элемента устанавливаются пустые наборы точек,
+            // поэтому до передачи данных отображается только подсказка.
             actualPoints = new List<ExpensePoint>();
             forecastPoints = new List<ExpensePoint>();
             indicatorName = string.Empty;
         }
 
+        /// Передаёт элементу управления новые данные для отображения.
         public void SetData(
             List<ExpensePoint> actual,
             List<ExpensePoint> forecast,
             string indicator,
             int movingAverageWindow)
         {
+            // Переданные ряды сохраняются во внутреннем состоянии.
+            // При передаче null используются пустые безопасные коллекции.
             actualPoints = actual ?? new List<ExpensePoint>();
             forecastPoints = forecast ?? new List<ExpensePoint>();
             indicatorName = indicator ?? string.Empty;
             windowSize = movingAverageWindow;
 
+            // Запрашивается повторная отрисовка с новыми данными.
             Invalidate();
         }
 
+        /// Очищает отображаемые ряды и возвращает график
+        /// в состояние отсутствия загруженных данных.
         public void ClearData()
         {
             actualPoints.Clear();
@@ -1018,6 +1243,12 @@ namespace TeamSpace.View
             Invalidate();
         }
 
+        /// Выполняет полную пользовательскую отрисовку графика.
+
+        /// При отсутствии точек отображается информационная надпись.
+        /// При наличии данных рассчитывается рабочая область графика,
+        /// диапазон оси значений и последовательно рисуются
+        /// фон прогноза, сетка, линии данных и легенда.
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
@@ -1030,6 +1261,8 @@ namespace TeamSpace.View
 
             graphics.Clear(Color.White);
 
+            // При отсутствии фактических точек вместо осей и линий
+            // выводится информационное состояние пустого графика.
             if (!HasData)
             {
                 DrawEmptyMessage(graphics);
@@ -1043,10 +1276,14 @@ namespace TeamSpace.View
                 Math.Max(100, Height - 102)
             );
 
+            // Фактические и прогнозные точки объединяются
+            // для определения общего диапазона осей и подписей годов.
             List<ExpensePoint> allPoints = new List<ExpensePoint>();
             allPoints.AddRange(actualPoints);
             allPoints.AddRange(forecastPoints);
 
+            // Вычисляются границы вертикального диапазона,
+            // после чего добавляется визуальный запас по краям графика.
             decimal minimumValue = allPoints.Min(point => point.Value);
             decimal maximumValue = allPoints.Max(point => point.Value);
 
@@ -1081,6 +1318,8 @@ namespace TeamSpace.View
             DrawLegend(graphics);
         }
 
+        /// Выводит подсказку в пустой области графика,
+        /// когда исходные данные ещё не загружены и не рассчитаны.
         private void DrawEmptyMessage(Graphics graphics)
         {
             string text = "Загрузите CSV и нажмите «Построить график»";
@@ -1099,6 +1338,11 @@ namespace TeamSpace.View
             }
         }
 
+        /// Расширяет диапазон вертикальной оси для визуальных отступов.
+
+        /// При совпадении минимального и максимального значения
+        /// создаётся искусственный диапазон, необходимый
+        /// для корректного вычисления координат.
         private void PrepareAxisRange(
             ref decimal minimumValue,
             ref decimal maximumValue)
@@ -1122,6 +1366,8 @@ namespace TeamSpace.View
             maximumValue += padding;
         }
 
+        /// Выделяет участок будущих периодов светлым фоном
+        /// и пунктирной линией отделяет его от фактических данных.
         private void DrawForecastBackground(
             Graphics graphics,
             RectangleF plotArea,
@@ -1142,6 +1388,8 @@ namespace TeamSpace.View
                 plotArea
             );
 
+            // Граница области прогноза располагается посередине
+            // между последней фактической и первой прогнозной точками.
             float separatorX = (lastActualX + firstForecastX) / 2F;
 
             RectangleF forecastArea = new RectangleF(
@@ -1188,6 +1436,8 @@ namespace TeamSpace.View
             }
         }
 
+        /// Рисует горизонтальную и вертикальную сетку,
+        /// подписи значений, подписи годов и границу области графика.
         private void DrawGridAndAxes(
             Graphics graphics,
             RectangleF plotArea,
@@ -1195,6 +1445,8 @@ namespace TeamSpace.View
             decimal minimumValue,
             decimal maximumValue)
         {
+            // Вертикальный диапазон делится на пять одинаковых секций,
+            // что определяет число интервалов горизонтальной сетки.
             const int horizontalSections = 5;
 
             using (Pen gridPen = new Pen(gridColor, 1F))
@@ -1239,6 +1491,8 @@ namespace TeamSpace.View
                     );
                 }
 
+                // Для большого числа периодов подписи годов прореживаются,
+                // чтобы текстовые значения не перекрывали друг друга.
                 int labelStep = Math.Max(
                     1,
                     (int)Math.Ceiling(allPoints.Count / 10.0)
@@ -1288,6 +1542,8 @@ namespace TeamSpace.View
             }
         }
 
+        /// Рисует линию и маркеры фактических значений
+        /// выбранного показателя расходов.
         private void DrawActualSeries(
             Graphics graphics,
             RectangleF plotArea,
@@ -1332,6 +1588,10 @@ namespace TeamSpace.View
             }
         }
 
+        /// Рисует линию и маркеры прогнозного ряда.
+
+        /// Начальная точка линии совпадает с последним фактическим
+        /// значением, что обеспечивает визуальную непрерывность графика.
         private void DrawForecastSeries(
             Graphics graphics,
             RectangleF plotArea,
@@ -1344,6 +1604,8 @@ namespace TeamSpace.View
 
             PointF[] points = new PointF[forecastPoints.Count + 1];
 
+            // Последняя фактическая точка включается в прогнозную линию,
+            // благодаря чему между рядами не образуется разрыв.
             ExpensePoint lastActualPoint =
                 actualPoints[actualPoints.Count - 1];
 
@@ -1388,6 +1650,8 @@ namespace TeamSpace.View
             }
         }
 
+        /// Отображает название показателя и пояснения цветов линий
+        /// фактического и прогнозного рядов.
         private void DrawLegend(Graphics graphics)
         {
             using (Font legendFont = new Font("Segoe UI", 9F, FontStyle.Regular))
@@ -1446,6 +1710,7 @@ namespace TeamSpace.View
             }
         }
 
+        /// Преобразует порядковый номер точки в горизонтальную координату.
         private float GetX(
             int pointIndex,
             int pointCount,
@@ -1458,6 +1723,8 @@ namespace TeamSpace.View
                    plotArea.Width * pointIndex / (pointCount - 1);
         }
 
+        /// Преобразует числовое значение точки в вертикальную координату
+        /// с учётом диапазона отображаемой оси.
         private float GetY(
             decimal value,
             decimal minimumValue,
@@ -1479,6 +1746,12 @@ namespace TeamSpace.View
     // Сглаженная синяя кнопка
     // ------------------------------------------------------------
 
+    /// Пользовательская кнопка с закруглённой формой
+    /// и визуальными состояниями наведения и нажатия.
+
+    /// Элемент применяется вместо стандартных кнопок формы,
+    /// чтобы сохранить единое оформление интерфейса.
+    /// Управление поддерживается как мышью, так и клавиатурой.
     public class SmoothMenuButton : Control
     {
         private readonly Color normalColor =
@@ -1493,8 +1766,12 @@ namespace TeamSpace.View
         private bool hovered;
         private bool pressed;
 
+        /// Создаёт кнопку, задаёт стандартное оформление
+        /// и включает оптимизированную пользовательскую отрисовку.
         public SmoothMenuButton()
         {
+            // Включаются режимы собственной отрисовки, двойной
+            // буферизации и корректной обработки прозрачного фона.
             SetStyle(
                 ControlStyles.UserPaint |
                 ControlStyles.AllPaintingInWmPaint |
@@ -1512,6 +1789,10 @@ namespace TeamSpace.View
             TabStop = true;
         }
 
+        /// Отрисовывает фон элемента с учётом цвета родительской панели.
+
+        /// Такой способ позволяет визуально сохранить прозрачное
+        /// окружение вокруг скруглённой поверхности кнопки.
         protected override void OnPaintBackground(PaintEventArgs e)
         {
             if (Parent == null)
@@ -1526,6 +1807,8 @@ namespace TeamSpace.View
             }
         }
 
+        /// Рисует скруглённую поверхность кнопки и центрированный текст.
+        /// Цвет поверхности зависит от текущего интерактивного состояния.
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
@@ -1534,6 +1817,8 @@ namespace TeamSpace.View
             e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
 
+            // Выбирается цвет поверхности кнопки согласно приоритету:
+            // нажатое состояние имеет приоритет над наведением.
             Color currentColor = normalColor;
 
             if (pressed)
@@ -1541,6 +1826,8 @@ namespace TeamSpace.View
             else if (hovered)
                 currentColor = hoverColor;
 
+            // Рабочая область немного уменьшается относительно границ
+            // элемента, чтобы исключить обрезание сглаженного контура.
             RectangleF rect = new RectangleF(
                 0.5F,
                 0.5F,
@@ -1568,6 +1855,8 @@ namespace TeamSpace.View
             );
         }
 
+        /// Включает состояние наведения при попадании указателя
+        /// мыши в область кнопки.
         protected override void OnMouseEnter(EventArgs e)
         {
             hovered = true;
@@ -1576,6 +1865,8 @@ namespace TeamSpace.View
             base.OnMouseEnter(e);
         }
 
+        /// Сбрасывает состояния наведения и нажатия
+        /// после выхода указателя мыши из области кнопки.
         protected override void OnMouseLeave(EventArgs e)
         {
             hovered = false;
@@ -1585,6 +1876,7 @@ namespace TeamSpace.View
             base.OnMouseLeave(e);
         }
 
+        /// Включает состояние нажатия при нажатии левой кнопки мыши.
         protected override void OnMouseDown(MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -1596,6 +1888,7 @@ namespace TeamSpace.View
             base.OnMouseDown(e);
         }
 
+        /// Сбрасывает состояние нажатия после отпускания кнопки мыши.
         protected override void OnMouseUp(MouseEventArgs e)
         {
             pressed = false;
@@ -1604,6 +1897,8 @@ namespace TeamSpace.View
             base.OnMouseUp(e);
         }
 
+        /// Отображает состояние нажатия при активации кнопки
+        /// клавишами Enter или Space.
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
@@ -1615,6 +1910,8 @@ namespace TeamSpace.View
             base.OnKeyDown(e);
         }
 
+        /// Завершает клавиатурное нажатие и инициирует событие Click
+        /// после отпускания клавиш Enter или Space.
         protected override void OnKeyUp(KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
@@ -1627,12 +1924,16 @@ namespace TeamSpace.View
             base.OnKeyUp(e);
         }
 
+        /// Формирует графический контур прямоугольника
+        /// со скруглёнными углами для отрисовки кнопки.
         private GraphicsPath CreateRoundedRectangle(
             RectangleF rect,
             float radius)
         {
             GraphicsPath path = new GraphicsPath();
 
+            // Диаметр дуг рассчитывается из переданного радиуса
+            // и при необходимости ограничивается размерами элемента.
             float diameter = radius * 2F;
 
             if (diameter > rect.Width)
