@@ -1,68 +1,147 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using TeamSpace.Models;
 
 namespace TeamSpace.Services
 {
-    /// Сервис для расчета статистики по данным о дорогах
+    /// <summary>
+    /// Общий сервис статистики для двух форм.
+    /// </summary>
     public static class StatisticsCalculator
     {
-        /// Находит регион с максимальным и минимальным снижением процента плохих дорог
-        public static (string MaxDecreaseRegion, double MaxDecrease, string MinDecreaseRegion, double MinDecrease)
+        /// <summary>
+        /// Метод формы подруги. Сигнатура и назначение сохранены.
+        /// </summary>
+        public static (
+            string MaxDecreaseRegion,
+            double MaxDecrease,
+            string MinDecreaseRegion,
+            double MinDecrease)
             FindMaxMinDecrease(List<RoadData> data)
         {
-            // Получаем уникальные регионы
-            var regions = data.Select(d => d.Region).Distinct();
-            var decreases = new List<(string Region, double Decrease)>();
+            if (data == null || data.Count == 0)
+                return ("Нет данных", 0, "Нет данных", 0);
 
-            foreach (var region in regions)
+            IEnumerable<string> regions = data
+                .Select(item => item.Region)
+                .Distinct();
+
+            List<(string Region, double Decrease)> decreases =
+                new List<(string Region, double Decrease)>();
+
+            foreach (string region in regions)
             {
-                // Получаем данные по региону, отсортированные по годам
-                var regionData = data
-                    .Where(d => d.Region == region)
-                    .OrderBy(d => d.Year)
+                List<RoadData> regionData = data
+                    .Where(item => item.Region == region)
+                    .OrderBy(item => item.Year)
                     .ToList();
 
                 if (regionData.Count < 2)
                     continue;
 
-                // Берем первый и последний год
-                var firstYear = regionData.First();
-                var lastYear = regionData.Last();
+                double decrease =
+                    regionData.First().BadRoadsPercent -
+                    regionData.Last().BadRoadsPercent;
 
-                // Считаем снижение (положительное число = дороги улучшились)
-                var decrease = firstYear.BadRoadsPercent - lastYear.BadRoadsPercent;
-
-                if (decrease > 0) // Только если есть снижение
-                {
+                if (decrease > 0)
                     decreases.Add((region, decrease));
-                }
             }
 
             if (decreases.Count == 0)
                 return ("Нет данных", 0, "Нет данных", 0);
 
-            // Находим максимум и минимум
-            var maxDecrease = decreases.OrderByDescending(x => x.Decrease).First();
-            var minDecrease = decreases.OrderBy(x => x.Decrease).First();
+            var maximum = decreases
+                .OrderByDescending(item => item.Decrease)
+                .First();
 
-            return (maxDecrease.Region, maxDecrease.Decrease, minDecrease.Region, minDecrease.Decrease);
+            var minimum = decreases
+                .OrderBy(item => item.Decrease)
+                .First();
+
+            return (
+                maximum.Region,
+                maximum.Decrease,
+                minimum.Region,
+                minimum.Decrease
+            );
         }
 
-        /// Получает данные по конкретному региону
-        public static List<RoadData> GetDataByRegion(List<RoadData> allData, string region)
+        public static List<RoadData> GetDataByRegion(
+            List<RoadData> allData,
+            string region)
         {
+            if (allData == null)
+                return new List<RoadData>();
+
             return allData
-                .Where(d => d.Region == region)
-                .OrderBy(d => d.Year)
+                .Where(item => item.Region == region)
+                .OrderBy(item => item.Year)
                 .ToList();
         }
 
-        /// Получает список всех регионов
         public static List<string> GetAllRegions(List<RoadData> data)
         {
-            return data.Select(d => d.Region).Distinct().OrderBy(r => r).ToList();
+            if (data == null)
+                return new List<string>();
+
+            return data
+                .Select(item => item.Region)
+                .Distinct()
+                .OrderBy(region => region)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Новый метод для карточек статистики ConsumerExpensesForm.
+        /// Возвращает максимальное и минимальное изменение выбранного
+        /// показателя относительно предыдущего года в процентах.
+        /// </summary>
+        public static ConsumerExpenseStatistics CalculateExpenseStatistics(
+            List<ConsumerExpenseData> data,
+            string indicatorName)
+        {
+            ConsumerExpenseStatistics result =
+                new ConsumerExpenseStatistics();
+
+            if (data == null || data.Count == 0)
+                return result;
+
+            List<ConsumerExpenseData> orderedData = data
+                .OrderBy(item => item.Year)
+                .ToList();
+
+            result.PeriodCount = orderedData.Count;
+
+            if (orderedData.Count < 2)
+                return result;
+
+            List<decimal> percentageChanges = new List<decimal>();
+
+            for (int index = 1; index < orderedData.Count; index++)
+            {
+                decimal previousValue =
+                    orderedData[index - 1].GetIndicatorValue(indicatorName);
+
+                decimal currentValue =
+                    orderedData[index].GetIndicatorValue(indicatorName);
+
+                if (previousValue == 0)
+                    continue;
+
+                decimal change =
+                    (currentValue - previousValue) /
+                    previousValue * 100M;
+
+                percentageChanges.Add(change);
+            }
+
+            if (percentageChanges.Count == 0)
+                return result;
+
+            result.MaximumPercentageChange = percentageChanges.Max();
+            result.MinimumPercentageChange = percentageChanges.Min();
+
+            return result;
         }
     }
 }
