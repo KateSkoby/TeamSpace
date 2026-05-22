@@ -1,8 +1,6 @@
 namespace TeamSpace.Models
 {
-    /// <summary>
-    /// Результат расчёта статистики для выбранного вида расходов.
-    /// </summary>
+    /// Результат расчёта статистики для выбранного вида расходов
     public class ConsumerExpenseStatistics
     {
         public int PeriodCount { get; set; }

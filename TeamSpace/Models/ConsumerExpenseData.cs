@@ -3,9 +3,7 @@ using System.ComponentModel;
 
 namespace TeamSpace.Models
 {
-    /// <summary>
-    /// Одна строка таблицы потребительских расходов.
-    /// </summary>
+    /// Одна строка таблицы потребительских расходов
     public class ConsumerExpenseData
     {
         public const string TotalIndicator = "Общие расходы";
@@ -51,9 +49,7 @@ namespace TeamSpace.Models
         [DisplayName(EducationIndicator)]
         public decimal EducationExpenses { get; set; }
 
-        /// <summary>
-        /// Возвращает значение показателя, который выбран в ComboBox формы.
-        /// </summary>
+        /// Возвращает значение показателя, который выбран в ComboBox формы
         public decimal GetIndicatorValue(string indicatorName)
         {
             switch (indicatorName)
