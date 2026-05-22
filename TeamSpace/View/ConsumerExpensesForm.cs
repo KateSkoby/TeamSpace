@@ -1,7 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 
 namespace TeamSpace.View
@@ -19,6 +25,8 @@ namespace TeamSpace.View
 
         private Label lblIndicator;
         private ComboBox cmbIndicator;
+
+        private DataTable expensesTable;
 
         public ConsumerExpensesForm()
         {
@@ -59,14 +67,34 @@ namespace TeamSpace.View
 
         private void ConfigureLeftTablePanel()
         {
-            // Заголовок таблицы располагается немного выше.
             gridHeaderPanel.Height = 48;
 
             lblGridTitle.Location = new Point(4, 3);
             lblGridTitle.Font = new Font("Segoe UI", 15F, FontStyle.Bold);
 
-            // Таблица автоматически займёт освободившееся пространство.
             dgvExpenses.Dock = DockStyle.Fill;
+            dgvExpenses.AutoGenerateColumns = true;
+            dgvExpenses.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+            dgvExpenses.ScrollBars = ScrollBars.Both;
+            dgvExpenses.ReadOnly = true;
+            dgvExpenses.AllowUserToAddRows = false;
+            dgvExpenses.AllowUserToDeleteRows = false;
+            dgvExpenses.AllowUserToResizeRows = false;
+            dgvExpenses.RowHeadersVisible = false;
+            dgvExpenses.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvExpenses.MultiSelect = false;
+
+            dgvExpenses.ColumnHeadersDefaultCellStyle.Font =
+                new Font("Segoe UI", 9.5F, FontStyle.Bold);
+
+            dgvExpenses.DefaultCellStyle.Font =
+                new Font("Segoe UI", 9.5F, FontStyle.Regular);
+
+            dgvExpenses.DefaultCellStyle.SelectionBackColor =
+                Color.FromArgb(226, 236, 255);
+
+            dgvExpenses.DefaultCellStyle.SelectionForeColor =
+                Color.FromArgb(30, 33, 46);
         }
 
         // ------------------------------------------------------------
@@ -80,17 +108,14 @@ namespace TeamSpace.View
             rightLayout.RowStyles.Clear();
             rightLayout.RowCount = 3;
 
-            // Компактный блок статистики.
             rightLayout.RowStyles.Add(
                 new RowStyle(SizeType.Absolute, 122F)
             );
 
-            // Компактный блок настроек.
             rightLayout.RowStyles.Add(
                 new RowStyle(SizeType.Absolute, 142F)
             );
 
-            // Всё оставшееся место получает график.
             rightLayout.RowStyles.Add(
                 new RowStyle(SizeType.Percent, 100F)
             );
@@ -137,6 +162,10 @@ namespace TeamSpace.View
             ConfigureCompactCard(cardMax, lblMaxTitle, lblMaxValue);
             ConfigureCompactCard(cardMin, lblMinTitle, lblMinValue);
             ConfigureCompactCard(cardYears, lblYearsTitle, lblYearsValue);
+
+            lblMaxValue.Text = "0 %";
+            lblMinValue.Text = "0 %";
+            lblYearsValue.Text = "0";
 
             statsLayout.Controls.Add(cardMax, 0, 0);
             statsLayout.Controls.Add(cardMin, 1, 0);
@@ -200,7 +229,6 @@ namespace TeamSpace.View
 
         private void ConfigureSettingsPanel()
         {
-            // Старый выбор метода прогноза скрывается.
             lblMovingAverage.Visible = false;
             lblMovingAverage.Enabled = false;
 
@@ -211,7 +239,6 @@ namespace TeamSpace.View
             lblSettingsTitle.Location = new Point(18, 4);
             lblSettingsTitle.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
 
-            // Поле прогноза.
             lblForecastYears.Text = "Прогноз N лет";
             lblForecastYears.AutoSize = true;
             lblForecastYears.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
@@ -223,7 +250,6 @@ namespace TeamSpace.View
             numForecastYears.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
             numForecastYears.Size = new Size(108, 30);
 
-            // Новый выбор показателя.
             lblIndicator = new Label
             {
                 Text = "Показатель:",
@@ -253,6 +279,7 @@ namespace TeamSpace.View
             });
 
             cmbIndicator.SelectedIndex = 0;
+            cmbIndicator.SelectedIndexChanged += cmbIndicator_SelectedIndexChanged;
 
             settingsPanel.Controls.Add(lblIndicator);
             settingsPanel.Controls.Add(cmbIndicator);
@@ -391,52 +418,450 @@ namespace TeamSpace.View
             }
         }
 
-        // Метод оставлен, так как он всё ещё привязан в Designer.
+        // Метод оставлен, так как он привязан в Designer.
         private void MenuBlueButton_Paint(object sender, PaintEventArgs e)
         {
         }
 
         // ------------------------------------------------------------
-        // Открытие CSV
+        // Загрузка CSV-файла из папки Data
         // ------------------------------------------------------------
 
         private void btnLoadFile_Click(object sender, EventArgs e)
         {
             try
             {
-                openFileDialog1.Filter =
-                    "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+                string filePath = FindConsumerExpensesCsvPath();
 
-                openFileDialog1.Title = "Открыть CSV-файл с данными";
-
-                if (openFileDialog1.ShowDialog() == DialogResult.OK)
+                if (!File.Exists(filePath))
                 {
                     MessageBox.Show(
-                        "CSV-файл выбран:\n" + openFileDialog1.FileName,
-                        "Открытие CSV",
+                        "Файл consumer_expenses.csv не найден.\n\n" +
+                        "Добавь файл в папку Data проекта:\n" +
+                        "Data\\consumer_expenses.csv",
+                        "Файл не найден",
                         MessageBoxButtons.OK,
-                        MessageBoxIcon.Information
+                        MessageBoxIcon.Warning
                     );
 
-                    /*
-                     * Здесь позже можно реализовать:
-                     * - чтение CSV-файла;
-                     * - заполнение dgvExpenses;
-                     * - расчёт минимального и максимального изменения;
-                     * - обновление количества периодов;
-                     * - построение графика.
-                     */
+                    return;
                 }
+
+                LoadExpensesFromCsv(filePath);
+
+                MessageBox.Show(
+                    "Данные успешно загружены из файла:\n" + filePath,
+                    "Открытие CSV",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "Ошибка при открытии CSV-файла:\n" + ex.Message,
+                    "Ошибка при загрузке CSV-файла:\n" + ex.Message,
                     "Ошибка",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
                 );
             }
+        }
+
+        private string FindConsumerExpensesCsvPath()
+        {
+            string outputDirectoryPath = Path.Combine(
+                Application.StartupPath,
+                "Data",
+                "consumer_expenses.csv"
+            );
+
+            if (File.Exists(outputDirectoryPath))
+                return outputDirectoryPath;
+
+            DirectoryInfo currentDirectory =
+                new DirectoryInfo(Application.StartupPath);
+
+            while (currentDirectory != null)
+            {
+                string projectDirectoryPath = Path.Combine(
+                    currentDirectory.FullName,
+                    "Data",
+                    "consumer_expenses.csv"
+                );
+
+                if (File.Exists(projectDirectoryPath))
+                    return projectDirectoryPath;
+
+                currentDirectory = currentDirectory.Parent;
+            }
+
+            return outputDirectoryPath;
+        }
+
+        private void LoadExpensesFromCsv(string filePath)
+        {
+            string[] lines = File
+                .ReadAllLines(filePath, Encoding.UTF8)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToArray();
+
+            if (lines.Length < 2)
+            {
+                throw new InvalidDataException(
+                    "CSV-файл не содержит строк с данными."
+                );
+            }
+
+            char separator = DetectSeparator(lines[0]);
+
+            string cleanHeaderLine = lines[0].TrimStart('\uFEFF');
+
+            string[] headers = ParseCsvLine(cleanHeaderLine, separator)
+                .Select(header => header.Trim())
+                .ToArray();
+
+            string[] requiredColumns =
+            {
+                "Год",
+                "Общие расходы",
+                "Продукты питания",
+                "Одежда и обувь",
+                "Жилищные услуги",
+                "Транспорт",
+                "Здравоохранение",
+                "Образование"
+            };
+
+            foreach (string requiredColumn in requiredColumns)
+            {
+                if (!headers.Contains(requiredColumn))
+                {
+                    throw new InvalidDataException(
+                        "В CSV-файле отсутствует обязательный столбец: " +
+                        requiredColumn
+                    );
+                }
+            }
+
+            Dictionary<string, int> columnIndexes =
+                headers
+                    .Select((header, index) => new { Header = header, Index = index })
+                    .ToDictionary(item => item.Header, item => item.Index);
+
+            DataTable loadedTable = CreateExpensesTable();
+
+            for (int lineIndex = 1; lineIndex < lines.Length; lineIndex++)
+            {
+                string[] cells = ParseCsvLine(lines[lineIndex], separator)
+                    .Select(cell => cell.Trim())
+                    .ToArray();
+
+                if (cells.Length < headers.Length)
+                {
+                    throw new InvalidDataException(
+                        "Недостаточно значений в строке " +
+                        (lineIndex + 1) + "."
+                    );
+                }
+
+                DataRow row = loadedTable.NewRow();
+
+                row["Год"] = ParseInteger(
+                    cells[columnIndexes["Год"]],
+                    lineIndex + 1,
+                    "Год"
+                );
+
+                row["Общие расходы"] = ParseNumber(
+                    cells[columnIndexes["Общие расходы"]],
+                    lineIndex + 1,
+                    "Общие расходы"
+                );
+
+                row["Продукты питания"] = ParseNumber(
+                    cells[columnIndexes["Продукты питания"]],
+                    lineIndex + 1,
+                    "Продукты питания"
+                );
+
+                row["Одежда и обувь"] = ParseNumber(
+                    cells[columnIndexes["Одежда и обувь"]],
+                    lineIndex + 1,
+                    "Одежда и обувь"
+                );
+
+                row["Жилищные услуги"] = ParseNumber(
+                    cells[columnIndexes["Жилищные услуги"]],
+                    lineIndex + 1,
+                    "Жилищные услуги"
+                );
+
+                row["Транспорт"] = ParseNumber(
+                    cells[columnIndexes["Транспорт"]],
+                    lineIndex + 1,
+                    "Транспорт"
+                );
+
+                row["Здравоохранение"] = ParseNumber(
+                    cells[columnIndexes["Здравоохранение"]],
+                    lineIndex + 1,
+                    "Здравоохранение"
+                );
+
+                row["Образование"] = ParseNumber(
+                    cells[columnIndexes["Образование"]],
+                    lineIndex + 1,
+                    "Образование"
+                );
+
+                loadedTable.Rows.Add(row);
+            }
+
+            DataView sortedView = loadedTable.DefaultView;
+            sortedView.Sort = "Год ASC";
+
+            expensesTable = sortedView.ToTable();
+
+            ShowExpensesInGrid();
+            UpdateStatistics();
+        }
+
+        private DataTable CreateExpensesTable()
+        {
+            DataTable table = new DataTable();
+
+            table.Columns.Add("Год", typeof(int));
+            table.Columns.Add("Общие расходы", typeof(decimal));
+            table.Columns.Add("Продукты питания", typeof(decimal));
+            table.Columns.Add("Одежда и обувь", typeof(decimal));
+            table.Columns.Add("Жилищные услуги", typeof(decimal));
+            table.Columns.Add("Транспорт", typeof(decimal));
+            table.Columns.Add("Здравоохранение", typeof(decimal));
+            table.Columns.Add("Образование", typeof(decimal));
+
+            return table;
+        }
+
+        private char DetectSeparator(string headerLine)
+        {
+            if (headerLine.Contains(";"))
+                return ';';
+
+            if (headerLine.Contains(","))
+                return ',';
+
+            throw new InvalidDataException(
+                "Не удалось определить разделитель CSV-файла."
+            );
+        }
+
+        private List<string> ParseCsvLine(string line, char separator)
+        {
+            List<string> cells = new List<string>();
+            StringBuilder currentCell = new StringBuilder();
+
+            bool insideQuotes = false;
+
+            for (int index = 0; index < line.Length; index++)
+            {
+                char currentCharacter = line[index];
+
+                if (currentCharacter == '"')
+                {
+                    if (insideQuotes &&
+                        index + 1 < line.Length &&
+                        line[index + 1] == '"')
+                    {
+                        currentCell.Append('"');
+                        index++;
+                    }
+                    else
+                    {
+                        insideQuotes = !insideQuotes;
+                    }
+                }
+                else if (currentCharacter == separator && !insideQuotes)
+                {
+                    cells.Add(currentCell.ToString());
+                    currentCell.Clear();
+                }
+                else
+                {
+                    currentCell.Append(currentCharacter);
+                }
+            }
+
+            cells.Add(currentCell.ToString());
+
+            return cells;
+        }
+
+        private int ParseInteger(
+            string text,
+            int lineNumber,
+            string columnName)
+        {
+            int value;
+
+            if (int.TryParse(text.Trim(), out value))
+                return value;
+
+            throw new InvalidDataException(
+                "Некорректное значение в строке " + lineNumber +
+                ", столбец \"" + columnName + "\": " + text
+            );
+        }
+
+        private decimal ParseNumber(
+            string text,
+            int lineNumber,
+            string columnName)
+        {
+            decimal value;
+
+            string preparedText = text
+                .Replace("\u00A0", string.Empty)
+                .Replace(" ", string.Empty)
+                .Trim();
+
+            if (decimal.TryParse(
+                preparedText,
+                NumberStyles.Any,
+                CultureInfo.GetCultureInfo("ru-RU"),
+                out value))
+            {
+                return value;
+            }
+
+            if (decimal.TryParse(
+                preparedText,
+                NumberStyles.Any,
+                CultureInfo.InvariantCulture,
+                out value))
+            {
+                return value;
+            }
+
+            throw new InvalidDataException(
+                "Некорректное значение в строке " + lineNumber +
+                ", столбец \"" + columnName + "\": " + text
+            );
+        }
+
+        // ------------------------------------------------------------
+        // Вывод данных в таблицу
+        // ------------------------------------------------------------
+
+        private void ShowExpensesInGrid()
+        {
+            dgvExpenses.DataSource = null;
+            dgvExpenses.DataSource = expensesTable;
+
+            dgvExpenses.AutoSizeColumnsMode =
+                DataGridViewAutoSizeColumnsMode.AllCells;
+
+            dgvExpenses.ScrollBars = ScrollBars.Both;
+
+            foreach (DataGridViewColumn column in dgvExpenses.Columns)
+            {
+                column.SortMode = DataGridViewColumnSortMode.NotSortable;
+
+                if (column.DataPropertyName != "Год")
+                {
+                    column.DefaultCellStyle.Format = "N0";
+                    column.DefaultCellStyle.Alignment =
+                        DataGridViewContentAlignment.MiddleRight;
+                }
+                else
+                {
+                    column.DefaultCellStyle.Alignment =
+                        DataGridViewContentAlignment.MiddleCenter;
+                }
+            }
+
+            dgvExpenses.ClearSelection();
+        }
+
+        // ------------------------------------------------------------
+        // Подсчёт статистики
+        // ------------------------------------------------------------
+
+        private void cmbIndicator_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateStatistics();
+        }
+
+        private void UpdateStatistics()
+        {
+            if (expensesTable == null || expensesTable.Rows.Count == 0)
+            {
+                lblMaxValue.Text = "0 %";
+                lblMinValue.Text = "0 %";
+                lblYearsValue.Text = "0";
+                return;
+            }
+
+            lblYearsValue.Text = expensesTable.Rows.Count.ToString();
+
+            string selectedIndicator =
+                cmbIndicator != null &&
+                cmbIndicator.SelectedItem != null
+                    ? cmbIndicator.SelectedItem.ToString()
+                    : "Общие расходы";
+
+            if (!expensesTable.Columns.Contains(selectedIndicator))
+            {
+                lblMaxValue.Text = "—";
+                lblMinValue.Text = "—";
+                return;
+            }
+
+            if (expensesTable.Rows.Count < 2)
+            {
+                lblMaxValue.Text = "0 %";
+                lblMinValue.Text = "0 %";
+                return;
+            }
+
+            List<decimal> percentageChanges = new List<decimal>();
+
+            for (int index = 1; index < expensesTable.Rows.Count; index++)
+            {
+                decimal previousValue = Convert.ToDecimal(
+                    expensesTable.Rows[index - 1][selectedIndicator]
+                );
+
+                decimal currentValue = Convert.ToDecimal(
+                    expensesTable.Rows[index][selectedIndicator]
+                );
+
+                if (previousValue == 0)
+                    continue;
+
+                decimal change =
+                    (currentValue - previousValue) / previousValue * 100M;
+
+                percentageChanges.Add(change);
+            }
+
+            if (percentageChanges.Count == 0)
+            {
+                lblMaxValue.Text = "0 %";
+                lblMinValue.Text = "0 %";
+                return;
+            }
+
+            CultureInfo russianCulture =
+                CultureInfo.GetCultureInfo("ru-RU");
+
+            decimal maximumChange = percentageChanges.Max();
+            decimal minimumChange = percentageChanges.Min();
+
+            lblMaxValue.Text =
+                maximumChange.ToString("0.##", russianCulture) + " %";
+
+            lblMinValue.Text =
+                minimumChange.ToString("0.##", russianCulture) + " %";
         }
 
         // ------------------------------------------------------------
@@ -447,10 +872,23 @@ namespace TeamSpace.View
         {
             try
             {
-                string indicator = cmbIndicator != null &&
-                                   cmbIndicator.SelectedItem != null
-                    ? cmbIndicator.SelectedItem.ToString()
-                    : "Показатель не выбран";
+                if (expensesTable == null || expensesTable.Rows.Count == 0)
+                {
+                    MessageBox.Show(
+                        "Сначала загрузите данные кнопкой «Открыть CSV».",
+                        "Нет данных",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+
+                    return;
+                }
+
+                string indicator =
+                    cmbIndicator != null &&
+                    cmbIndicator.SelectedItem != null
+                        ? cmbIndicator.SelectedItem.ToString()
+                        : "Показатель не выбран";
 
                 int forecastYears = (int)numForecastYears.Value;
 
